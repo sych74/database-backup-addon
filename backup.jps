@@ -4,7 +4,8 @@ name: Database Backup/Restore Add-On
 id: db-backup
 targetEditions: any
 logo: /images/backup-logo.png
-description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases. Supported databases: MySQL, MariaDB, PostgreSQL, Redis.
+description: |-
+  Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases. Supported databases: MySQL, MariaDB, PostgreSQL, Redis.
 baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/main
 
 targetNodes:
