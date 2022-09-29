@@ -47,6 +47,7 @@ function backup(){
     else
         if [ "$COMPUTE_TYPE" == "postgres" ]; then
             PGPASSWORD="${DBPASSWD}" pg_dumpall -U ${DBUSER} > db_backup.sql
+            sed -ci -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' db_backup.sql 
         else
             mysqldump -h localhost -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql
         fi
