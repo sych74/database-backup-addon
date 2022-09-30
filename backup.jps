@@ -125,7 +125,7 @@ settings:
         type: string
         caption: Database User
         name: dbuser
-        tooltip: In case you restore non-native database backup do not forget to provide its credentials instead of initial ones with help of add-on Configure action. It is relevant to <b>sqldb</b> databases only.
+        tooltip: In case you restore non-native database backup do not forget to provide its credentials instead of initial ones with help of add-on <b>Configure</b> action. It is relevant to <b>sqldb</b> databases only.
       - hideLabel: false
         hidden: false
         type: string
