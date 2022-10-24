@@ -115,6 +115,7 @@ function BackupManager(config) {
             [ me.checkEnvStatus ],
             [ me.checkStorageEnvStatus ],
 	    [ me.checkCurrentlyRunningBackup ],
+	    [ me.checkCredentials ],
             [ me.removeMounts ],
             [ me.addMountForBackupRestore ],
             [ me.cmd, [
@@ -140,6 +141,7 @@ function BackupManager(config) {
             [ me.checkEnvStatus ],
             [ me.checkStorageEnvStatus ],
 	    [ me.checkCurrentlyRunningBackup ],
+	    [ me.checkCredentials ],
             [ me.removeMounts ],
             [ me.addMountForBackupRestore ],
             [ me.cmd, [
@@ -151,16 +153,38 @@ function BackupManager(config) {
 		'if [ "$COMPUTE_TYPE" == "redis" ]; then rm -f /root/redis-restore.sh; wget -O /root/redis-restore.sh %(baseUrl)/scripts/redis-restore.sh; chmod +x /root/redis-restore.sh; bash /root/redis-restore.sh; else true; fi',
 		'[ "$COMPUTE_TYPE" == "postgres" ] && PGPASSWORD=%(dbpass) psql -U %(dbuser) -d postgres < /root/db_backup.sql || true',
 		'if [ "$COMPUTE_TYPE" == "mariadb" ] || [ "$COMPUTE_TYPE" == "mysql" ] || [ "$COMPUTE_TYPE" == "percona" ]; then mysql -h localhost -u %(dbuser) -p%(dbpass) --force < /root/db_backup.sql; else true; fi',
-		'jem service restart'
+		'jem service restart',
+		'if [ -n "$REPLICA_PSWD" ] && [ -n "$REPLICA_USER" ] ; then wget %(baseUrl)/scripts/setupUser.sh -O /root/setupUser.sh &>> /var/log/run.log; bash /root/setupUser.sh ${REPLICA_USER} ${REPLICA_PSWD} %(userEmail) %(envName) %(userSession); fi'
             ], {
-                nodeGroup : config.nodeGroup,
+                nodeId : config.backupExecNode,
                 envName : config.envName,
 		baseUrl : config.baseUrl,
 		dbuser: config.dbuser,
-		dbpass: config.dbpass
+		dbpass: config.dbpass,
+		userEmail: user.email,
+		userSession: session,
             }],
         [ me.removeMounts ]
     ]);
+    }
+	
+    me.checkCredentials = function () {
+        var checkCredentialsCmd = "wget " + config.baseUrl + "/scripts/checkCredentials.sh -O /root/checkCredentials.sh &>> /var/log/run.log; chmod +x /root/checkCredentials.sh; bash /root/checkCredentials.sh checkCredentials " + config.dbuser + " " + config.dbpass;
+        resp = jelastic.env.control.ExecCmdById(config.envName, session, config.backupExecNode, toJSON([{ command: checkCredentialsCmd }]), true, "root");
+        if (resp.result != 0) {
+            var title = "Database credentials specified in Backup add-on for " + config.envName + " are incorrect",
+                text = "Database credentials specified in Backup add-on for " + config.envName + " are incorrect. Please specify the right username and password in add-on settings.";
+            try {
+                jelastic.message.email.Send(appid, signature, null, user.email, user.email, title, text);
+            } catch (ex) {
+                emailResp = error(Response.ERROR_UNKNOWN, toJSON(ex));
+            }
+	    return {
+                result : Response.ERROR_UNKNOWN,
+                error : "DB credentials set in Backup add-on for " + config.envName + " are wrong"
+            }
+        }
+        return { result : 0 };
     }
 
     me.addMountForBackupRestore = function addMountForBackupRestore() {
