@@ -8,9 +8,12 @@ description: Backup Add-On for the database. It can be used to create scheduled 
 baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/master
 
 targetNodes:
-  nodeGroup: 
-    - sqldb
-    - nosqldb
+  nodeType: 
+    - redis
+    - postgresql
+    - mysql
+    - mariadb-dockerized
+    - perconadb
 
 settings:
   main:
