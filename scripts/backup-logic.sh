@@ -36,7 +36,7 @@ function rotate_snapshots(){
 function create_snapshot(){
     source /etc/jelastic/metainf.conf 
     echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
-    DUMP_NAME=$(date "+%F_%H%M%S"-\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE\))
+    DUMP_NAME=$(date "+%F_%H%M%S"-${BACKUP_TYPE}\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE\))
     if [ "$COMPUTE_TYPE" == "redis" ]; then
         RDB_TO_BACKUP=$(ls -d /tmp/* |grep redis-dump.*);
         RESTIC_PASSWORD=${ENV_NAME} restic -q -r /opt/backup/${ENV_NAME}  backup --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${RDB_TO_BACKUP} | tee -a ${BACKUP_LOG_FILE};
