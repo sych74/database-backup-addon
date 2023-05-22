@@ -34,6 +34,7 @@ function rotate_snapshots(){
 }
 
 function create_snapshot(){
+    source /etc/jelastic/metainf.conf 
     echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
     DUMP_NAME=$(date "+%F_%H%M%S"-\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE\))
     if [ "$COMPUTE_TYPE" == "redis" ]; then
