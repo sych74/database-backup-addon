@@ -1,12 +1,14 @@
+<p align="center">
+<img style="padding: 0 15px; float: left;" src="images/backup-logo.png" width="70">
+</p>
 
-<img src="images/backup-logo.png" width="100" alt="Backup Storage"/>  
+# Database Backup/Restore Add-On
 
-# Database Backup Add-On
+Database Backup Add-On is compatible with multiple database solutions in the Virtuozzo Application Platform. It works in tandem with [Backup Storage](https://github.com/jelastic-jps/backup-storage) to help users automatically create and store database backups at the remote storage. The list of supported web applications:
 
-Backup Add-On is a solution that backups filesystem and database of a web application to [Backup Storage](https://docs.jelastic.com/shared-storage-container/) node within the Virtuozzo Application Platform. 
-The list of supported web applications:
-
- - MySQL/MariaDB/Percona
+- MySQL/MariaDB/Percona
+- PostgreSQL
+- Redis
 
 As a backup software the [Restic](https://restic.net/) is used.
 
@@ -14,80 +16,82 @@ Restic is a program to make a security copy for free and fast. It is a secure, c
 
 Restic encrypts data using AES-256 and authenticates it using Poly1305-AES. Backing up is incremental process and is based on snapshotting of the specific directory or even the whole server that makes the process is really fast.
 
-## How does the Backup Add-On Work
 
-Backup Add-On can be installed on any Application Server node and works in tandem with [Backup Storage](https://github.com/jelastic-jps/backup-storage). They both have preinstalled Restic software, which do different functions.
+## Pre-Requirements
 
-<img src="images/backup-flow.png" width="500" alt="Backup Storage"/>
+Before starting the add-on installation, you need to create a dedicated storage instance to keep all the backup data.
 
-The Restic on the Application node is used to obtain a list of backups available for the environment and to create/restore these backups.
-On the backup storage node, the Restic is used to serve requests from Application's Restic instance providing information regarding storage and available backup snapshots for the environment the Backup Add-On is installed on. Thus the Application's Restic decides what backup/restore actions should be done.  
+1\. If you don’t have one, it can be created in a few minutes using the dedicated **Backup Storage** package in the [platform Marketplace](https://www.virtuozzo.com/application-platform-docs/marketplace/).
 
-## Installation Process  
+![marketplace backup storage](images/01-marketplace-backup-storage.png)
 
-1. [Import](https://docs.jelastic.com/environment-import/) the [link of the manifest](https://raw.githubusercontent.com/jelastic-jps/backup-addon/main/backup.jps) within a dashboard of [Virtuozzo Application Platform for WordPress](https://docs.jelastic.com/virtuozzo-application-platform-for-wordpress/) 
+If you already have such storage, you can skip this section.
 
-<p align="left"> 
-<img src="images/import.png" width="400">
-</p>
+2\. Within the installation window, you can choose between the ***Standalone*** and ***Cluster*** storage options. Next, specify the preferred **Number of nodes** (for Cluster option) and **Storage size**. Finalize by providing the standard data:
 
- or invoke add-on installation within [Application server layer](https://docs.jelastic.com/paas-components-definition/#layer) addons
+- **Environment** – environment domain name
+- **Display Name** – [environment's alias](https://www.virtuozzo.com/application-platform-docs/environment-aliases/)
+- **Region** – [environment's region](https://www.virtuozzo.com/application-platform-docs/environment-regions/) (if multiple ones are available)
 
-<p align="left"> 
-<img src="images/addons.png" width="700">
-</p>
+![backup storage installation](images/02-backup-storage-installation.png)
 
-2. In the opened window, set up the **Backup schedule**, choose **Backup storage** and define **Number of backups** to be kept during backup files rotation.
+3\. Click the Install button and wait several minutes for the storage to be created. It will be automatically added to the “*Backup storage nodes*” [group](https://www.virtuozzo.com/application-platform-docs/environment-groups/).
 
-<p align="left"> 
-<img src="images/addon-install-configure.png" width="600">
-</p>
+![backup storage environment](images/03-backup-storage-environment.png)
 
-3. When the installation is finished, you may create the first backup which is usually takes more time than the subsequent incremental backups. This can be done manually:
+> **Tip:** One storage can be used by as many databases as needed.
 
-<p align="left"> 
-<img src="images/addon-ui-backup.png" width="400">
-</p>
 
-### Backup Flow
+## Add-On Installation
 
-Backup action can be started automatically according to the predifened schedule or manually via Add-On's UI.
-Once the backup action is invoked the following steps take place:  
+1\. Once the storage is ready, you can install the backup add-on. Hover over your database and click the **Add-Ons** icon.
 
- - Backup Storage is mounted via NFS4 to the Application node
- - Database dump is generated to the flat file
- - The backup snapshot is created
- - Backup snapshot comprises the database dump file and specific directory. Currently the most common used directory for the web applications: **/var/www/webroot/ROOT/**.
+![backup restore add-on](images/04-backup-restore-addon.png)
 
-### Restoration Flow
+Locate the required ***Database Backup/Restore Add-On*** and click **Install**.
 
-Restore action can be started manually only via Add-On's UI.
+2\. Provide the following data:
 
-<p align="left"> 
-<img src="images/addon-ui-restore.png" width="400">
-</p>
+- Choose scheduling option
+  - **Pre-defined** – select from a list of standard backup intervals (hourly, daily, weekly, monthly)
+  - **Custom** – choose the exact Time, required Days of the week, and Time Zone
+![custom backup schedule](images/05-custom-backup-schedule.png)
+  - **Manual (crontab)** - provide a simple [cron-based expression](https://en.wikipedia.org/wiki/Cron#Overview) (using the UTC zone) to schedule backups
+![crontab backup schedule](images/06-crontab-backup-schedule.png)
+- **Backup storage** – choose from the list of the backup storages installed on the account
+- **Number of backups** – set the number of the newest backups to keep for the current database
+- **Database User** and **Database Password** – provide user credentials to access the database
 
-Choose the required timestamp of the backup snapshot and restore it.
+![backup restore add-on installation](images/07-backup-restore-addon-installation.png)
 
-<p align="left"> 
-<img src="images/timestamps.png" width="400">
-</p>
+3\. In a minute, you’ll see the installation success pop-up.
 
-### Add-On Configuration
+![add-on installed](images/08-addon-installed.png)
 
-You may configure Add-On's parameters.
+Your backup add-on is already working. Just wait for the specified time for backups to be created.
 
-<p align="left"> 
-<img src="images/addon-ui-configure.png" width="400">
-</p>
 
-These are:  
+## Managing Add-On
 
- - Backup schedule
- - Number of backups to be kept
- - Backup storage environment
+After the installation, the add-on gives you the options to:
 
-<p align="left"> 
-<img src="images/addon-configure.png" width="600">
-</p>
- 
+- **Backup Now** – creates an immediate backup
+- **Configure** – adjusts parameters specified during the creation (schedule, storage node, quantity of backups, user credentials)
+- **Restore** – restores from backup
+- **Uninstall** – removes the backup add-on
+
+![managing add-on](images/09-managing-addon.png)
+
+
+## Restoring Database
+
+*Database restoration from the backup overrides all the existing data. Any recent changes that were made since the backup creation will be permanently lost.*
+
+In order to restore a database from a backup, you need to select the **Restore** option for the add-on. A dialogue window with the following options will be opened:
+
+- **Restore from** – choose the target environment (multiple options may be available if the backup add-on is used on several environments)
+- **Backup** – select from a list of backups for the selected environment (names contain timestamps for quick identification)
+
+![restore from backup](images/10-restore-from-backup.png)
+
+Click **Restore** and confirm via pop-up. Once initiated, the action cannot be canceled or reverted. You'll see the success notification in the dashboard after the process completion.
