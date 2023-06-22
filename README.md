@@ -80,7 +80,7 @@ After the installation, the add-on gives you the options to:
 - **Restore** – restores from backup
 - **Uninstall** – removes the backup add-on
 
-![managing add-on]images/09-managing-addon.png)
+![managing add-on](images/09-managing-addon.png)
 
 
 ## Restoring Database
