@@ -67,7 +67,7 @@ function backup(){
         if [ "$COMPUTE_TYPE" == "postgres" ]; then
             PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
             PGPASSWORD="${DBPASSWD}" pg_dumpall -U ${DBUSER} > db_backup.sql || { echo "DB backup process failed."; exit 1; }
-            sed -ci -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' db_backup.sql 
+	    sed -ci -e '0,/^ALTER ROLE webadmin WITH SUPERUSER/{/^ALTER ROLE webadmin WITH SUPERUSER/d}' db_backup.sql
         else
             mysql -h localhost -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
             mysqldump -h localhost -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
