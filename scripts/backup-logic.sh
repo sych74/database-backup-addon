@@ -13,6 +13,8 @@ BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
 
+which restic || { yum-config-manager --disable nodesource; yum -y install restic; }
+
 if [ "$COMPUTE_TYPE" == "redis" ]; then
     if grep -q '^cluster-enabled yes' /etc/redis.conf; then
         REDIS_TYPE="-cluster"
