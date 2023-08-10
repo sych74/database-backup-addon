@@ -22,6 +22,8 @@ else
     yum-config-manager --disable copr:copr.fedorainfracloud.org:copart:restic
 fi
 
+source /etc/jelastic/metainf.conf;
+
 if [ "$COMPUTE_TYPE" == "redis" ]; then
     if grep -q '^cluster-enabled yes' /etc/redis.conf; then
         REDIS_TYPE="-cluster"
