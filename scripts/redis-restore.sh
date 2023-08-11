@@ -1,5 +1,6 @@
 #!/bin/bash
 
+REDIS_CONF_PATH=$(realpath /etc/redis.conf)
 RDB_TO_RESTORE=$(ls -d /tmp/* |grep redis-dump.*);
 
 cd tmp; wget https://github.com/alibaba/RedisShake/releases/download/v3.1.1/redis-shake.tar.gz;
