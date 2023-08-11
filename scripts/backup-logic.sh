@@ -25,7 +25,8 @@ fi
 source /etc/jelastic/metainf.conf;
 
 if [ "$COMPUTE_TYPE" == "redis" ]; then
-    if grep -q '^cluster-enabled yes' /etc/redis.conf; then
+    REDIS_CONF_PATH=$(realpath /etc/redis.conf)
+    if grep -q '^cluster-enabled yes' ${REDIS_CONF_PATH}; then
         REDIS_TYPE="-cluster"
     else
         REDIS_TYPE="-standalone"
@@ -64,7 +65,7 @@ function backup(){
     if [ "$COMPUTE_TYPE" == "redis" ]; then
         RDB_TO_REMOVE=$(ls -d /tmp/* |grep redis-dump.*)
         rm -f ${RDB_TO_REMOVE}
-        export REDISCLI_AUTH=$(cat /etc/redis.conf |grep '^requirepass'|awk '{print $2}');
+        export REDISCLI_AUTH=$(cat ${REDIS_CONF_PATH} |grep '^requirepass'|awk '{print $2}');
         if [ "$REDIS_TYPE" == "-standalone" ]; then
             redis-cli --rdb /tmp/redis-dump-standalone.rdb
         else
