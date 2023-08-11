@@ -5,10 +5,10 @@ RDB_TO_RESTORE=$(ls -d /tmp/* |grep redis-dump.*);
 
 cd tmp; wget https://github.com/alibaba/RedisShake/releases/download/v3.1.1/redis-shake.tar.gz;
 tar -xf redis-shake.tar.gz;
-grep -q '^cluster-enabled yes' /etc/redis.conf && REDIS_TYPE="cluster" || REDIS_TYPE="standalone";
+grep -q '^cluster-enabled yes' ${REDIS_CONF_PATH} && REDIS_TYPE="cluster" || REDIS_TYPE="standalone";
 sed -ci -e "s/^type =.*/type = '${REDIS_TYPE}'/" restore.toml;
 sed -ci -e "1s/^type =.*/type = 'restore'/" restore.toml;
-export REDISCLI_AUTH=$(cat /etc/redis.conf |grep '^requirepass'|awk '{print $2}');
+export REDISCLI_AUTH=$(cat ${REDIS_CONF_PATH} |grep '^requirepass'|awk '{print $2}');
 sed -ci -e "s/^password =.*/password = '${REDISCLI_AUTH}'/" restore.toml;
 RESTORE_MASTER_ID=$(redis-cli cluster nodes|grep master|grep -v fail|head -n 1|awk '{print $2}'|awk -F : '{print $1}')
 sed -ci -e "s/^address =.*/address = '${RESTORE_MASTER_ID}:6379'/" restore.toml;
