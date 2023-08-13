@@ -20,6 +20,7 @@ else
           dnf install epel-release
           dnf install restic
     else
+          yum-config-manager --disable nodesource
           yum-config-manager --add-repo https://copr.fedorainfracloud.org/coprs/copart/restic/repo/epel-7/copart-restic-epel-7.repo
           yum-config-manager --enable copr:copr.fedorainfracloud.org:copart:restic
           yum -y install restic
