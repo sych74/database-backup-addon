@@ -16,10 +16,15 @@ BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.g
 if which restic; then
     true
 else
-    yum-config-manager --disable nodesource; 
-    yum-config-manager --enable copr:copr.fedorainfracloud.org:copart:restic
-    yum -y install restic;
-    yum-config-manager --disable copr:copr.fedorainfracloud.org:copart:restic
+    if which dnf; then
+          dnf install epel-release
+          dnf install restic
+    else
+          yum-config-manager --add-repo https://copr.fedorainfracloud.org/coprs/copart/restic/repo/epel-7/copart-restic-epel-7.repo
+          yum-config-manager --enable copr:copr.fedorainfracloud.org:copart:restic
+          yum -y install restic
+          yum-config-manager --disable copr:copr.fedorainfracloud.org:copart:restic
+    fi 
 fi
 
 source /etc/jelastic/metainf.conf;
