@@ -206,7 +206,7 @@ onAfterConfirmTransfer: setSchedule
 
 actions:    
   installRestic:
-    cmd [cp]: |-
+    cmd [${targetNodes.nodeGroup}]: |-
       if which dnf; then
           dnf install epel-release
           dnf install restic
