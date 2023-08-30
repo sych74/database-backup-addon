@@ -168,6 +168,7 @@ globals:
   scriptSufix: db-backup
 
 onInstall:
+  - checkAddons
   - installRestic
   - setSchedule
 
@@ -204,7 +205,32 @@ onAfterClone:
 
 onAfterConfirmTransfer: setSchedule
 
-actions:    
+actions:
+  checkAddons:
+    - script: |-
+        var onAfterReturn = { setGlobals: {} },
+          glbs = onAfterReturn.setGlobals,
+          resp = api.marketplace.app.GetAddonList({
+            search: {},
+            envName: "${env.name}",
+            session: session
+          });
+        if (resp.result != 0) return resp;
+        glbs["alreadyInstalled"] = false;
+        for (let i = 0, n = resp.apps.length; i < n; i++) {
+        if (resp.apps[i].isInstalled) {
+            if (resp.apps[i].app_id == 'wp-backup') {
+              glbs["alreadyInstalled"] = true;
+              break;
+            } 
+          }
+        }
+        return { result: 0, onAfterReturn: onAfterReturn };
+    - if ('${globals.alreadyInstalled}' == 'true' ):
+      - stopEvent:
+          type: warning
+          message: Wordpress backup add-on is already installed on ${env.name}. Database backup addon installation is not possible.
+
   installRestic:
     cmd [${targetNodes.nodeGroup}]: |-
       if which dnf; then
