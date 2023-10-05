@@ -17,8 +17,8 @@ if which restic; then
     true
 else
     if which dnf; then
-          dnf install epel-release
-          dnf install restic
+          dnf install -y epel-release
+          dnf install -y restic
     else
           yum-config-manager --disable nodesource
           yum-config-manager --add-repo https://copr.fedorainfracloud.org/coprs/copart/restic/repo/epel-7/copart-restic-epel-7.repo
