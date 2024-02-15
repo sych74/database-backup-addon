@@ -11,6 +11,11 @@ targetNodes:
   nodeType: 
     - redis
     - postgresql
+    - postgres15
+    - postgres14
+    - postgres13
+    - postgres12
+    - postgres11
     - mysql
     - mariadb-dockerized
     - perconadb
