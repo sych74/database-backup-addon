@@ -9,7 +9,9 @@ if (resp.result != 0 && resp.result != 11) return resp;
 if (resp.result == 11) {
     storage_unavailable_markup = "Storage environment " + "${settings.storageName}" + " is deleted.";
 } else if (resp.env.status == 1) {
-    var respUpdate = api.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": "/usr/bin/restic self-update 2>&1", "params": ""}]), false);
+    var baseUrl = jps.baseUrl;
+    var updateResticOnStorageCommand = "wget --tries=10 -O /tmp/installUpdateRestic " + baseUrl + "/scripts/installUpdateRestic && mv -f /tmp/installUpdateRestic /usr/sbin/installUpdateRestic && chmod +x /usr/sbin/installUpdateRestic && /usr/sbin/installUpdateRestic";
+    var respUpdate = api.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": updateResticOnStorageCommand, "params": ""}]), false, "root");
     if (respUpdate.result != 0) return resp;
     var backups = jelastic.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": "/root/getBackupsAllEnvs.sh", "params": ""}]), false, "root").responses[0].out;
     var backupList = toNative(new JSONObject(String(backups)));

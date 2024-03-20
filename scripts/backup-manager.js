@@ -140,10 +140,13 @@ function BackupManager(config) {
 		baseUrl : config.baseUrl
 	    }],
             [me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh update_restic'
+                'bash /root/%(envName)_backup-logic.sh update_restic %(baseUrl)'
             ], backupCallParams ],
             [ me.cmd, [
                 'bash /root/%(envName)_backup-logic.sh check_backup_repo %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email)'
+            ], backupCallParams ],
+            [ me.cmd, [
+                'bash /root/%(envName)_backup-logic.sh rotate_snapshots %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email)'
             ], backupCallParams ],
 	    [ me.cmd, [
                 'bash /root/%(envName)_backup-logic.sh backup %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass)'
@@ -170,16 +173,33 @@ function BackupManager(config) {
             [ me.removeMounts ],
             [ me.addMountForRestore ],
             [ me.cmd, [
-		'echo $(date) %(envName) Restoring the snapshot $(cat /root/.backupid)', 
+	        '[ -f /root/%(envName)_backup-logic.sh ] && rm -f /root/%(envName)_backup-logic.sh || true',
+                'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh'
+            ], {
+		nodeId : config.backupExecNode,
+                envName : config.envName,
+		baseUrl : config.baseUrl
+	    }],
+            [me.cmd, [
+                'bash /root/%(envName)_backup-logic.sh update_restic %(baseUrl)'
+            ], {
+		nodeId : config.backupExecNode,
+                envName : config.envName,
+		baseUrl : config.baseUrl
+	    }],
+            [ me.cmd, [
                 'SNAPSHOT_ID=$(RESTIC_PASSWORD=$(cat /root/.backupedenv) restic -r /opt/backup/$(cat /root/.backupedenv) snapshots|grep $(cat /root/.backupid)|awk \'{print $1}\')',
                 '[ -n "${SNAPSHOT_ID}" ] || false',
 		'source /etc/jelastic/metainf.conf',
 		'RESTIC_PASSWORD=$(cat /root/.backupedenv) GOGC=20 restic -r /opt/backup/$(cat /root/.backupedenv) restore ${SNAPSHOT_ID} --target /',
-		'if [ "$COMPUTE_TYPE" == "redis" ]; then rm -f /root/redis-restore.sh; wget -O /root/redis-restore.sh %(baseUrl)/scripts/redis-restore.sh; chmod +x /root/redis-restore.sh; bash /root/redis-restore.sh; else true; fi',
-		'[ "$COMPUTE_TYPE" == "postgres" ] && PGPASSWORD=%(dbpass) psql --no-readline -q -U %(dbuser) -d postgres < /root/db_backup.sql || true',
-		'if [ "$COMPUTE_TYPE" == "mariadb" ] || [ "$COMPUTE_TYPE" == "mysql" ] || [ "$COMPUTE_TYPE" == "percona" ]; then mysql -h localhost -u %(dbuser) -p%(dbpass) --force < /root/db_backup.sql; else true; fi',
+		'if [ "$COMPUTE_TYPE" == "redis" ]; then rm -f /root/redis-restore.sh; wget -O /root/redis-restore.sh %(baseUrl)/scripts/redis-restore.sh; chmod +x /root/redis-restore.sh; bash /root/redis-restore.sh 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
+		'if [ "$COMPUTE_TYPE" == "postgres" ]; then PGPASSWORD=%(dbpass) psql --no-readline -q -U %(dbuser) -d postgres < /root/db_backup.sql 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
+		'if [ "$COMPUTE_TYPE" == "mariadb" ]; then rm -f /root/mariadb-restore.sh; wget -O /root/mariadb-restore.sh %(baseUrl)/scripts/mariadb-restore.sh; chmod +x /root/mariadb-restore.sh; bash /root/mariadb-restore.sh %(dbuser) %(dbpass) 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
+		'if [ "$COMPUTE_TYPE" == "mysql" ] || [ "$COMPUTE_TYPE" == "percona" ]; then mysql --silent -h localhost -u %(dbuser) -p%(dbpass) --force < /root/db_backup.sql 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
+                'if [ "$COMPUTE_TYPE" == "mongodb" ]; then rm -f /root/mongo-restore.sh; wget -O /root/mongo-restore.sh %(baseUrl)/scripts/mongo-restore.sh; chmod +x /root/mongo-restore.sh; bash /root/mongo-restore.sh %(dbuser) %(dbpass) 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
 		'jem service restart',
-		'if [ -n "$REPLICA_PSWD" ] && [ -n "$REPLICA_USER" ] ; then wget %(baseUrl)/scripts/setupUser.sh -O /root/setupUser.sh &>> /var/log/run.log; bash /root/setupUser.sh ${REPLICA_USER} ${REPLICA_PSWD} %(userEmail) %(envName) %(userSession); fi'
+		'if [ -n "$REPLICA_PSWD" ] && [ -n "$REPLICA_USER" ] ; then wget %(baseUrl)/scripts/setupUser.sh -O /root/setupUser.sh &>> /var/log/run.log; bash /root/setupUser.sh ${REPLICA_USER} ${REPLICA_PSWD} %(userEmail) %(envName) %(userSession); fi',
+		'echo $(date) %(envName) snapshot $(cat /root/.backupid) restored successfully| tee -a %(restoreLogFile)'
             ], {
                 nodeId : config.backupExecNode,
                 envName : config.envName,
@@ -188,6 +208,7 @@ function BackupManager(config) {
 		dbpass: config.dbpass,
 		userEmail: user.email,
 		userSession: session,
+		restoreLogFile : "/var/log/backup_addon_restore.log"
             }],
         [ me.removeMounts ]
     ]);

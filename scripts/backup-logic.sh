@@ -15,19 +15,12 @@ BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
 
-if which restic; then
-    true
-else
-    if which dnf 2>&1; then
-          dnf install -y epel-release 2>&1
-          dnf install -y restic 2>&1
+if [ "$COMPUTE_TYPE" == "mongodb" ]; then
+    if grep -q '^replication' /etc/mongod.conf; then
+        MONGO_TYPE="-replica-set"
     else
-          yum-config-manager --disable nodesource 2>&1
-          yum-config-manager --add-repo https://copr.fedorainfracloud.org/coprs/copart/restic/repo/epel-7/copart-restic-epel-7.repo 2>&1
-          yum-config-manager --enable copr:copr.fedorainfracloud.org:copart:restic 2>&1
-          yum -y install restic 2>&1
-          yum-config-manager --disable copr:copr.fedorainfracloud.org:copart:restic 2>&1
-    fi 
+        MONGO_TYPE="-standalone"
+    fi
 fi
 
 source /etc/jelastic/metainf.conf;
@@ -40,6 +33,12 @@ if [ "$COMPUTE_TYPE" == "redis" ]; then
         REDIS_TYPE="-standalone"
     fi
 fi
+
+function forceInstallUpdateRestic(){
+        wget --tries=10 -O /tmp/installUpdateRestic ${BASE_URL}/scripts/installUpdateRestic && \
+        mv -f /tmp/installUpdateRestic /usr/sbin/installUpdateRestic && \
+        chmod +x /usr/sbin/installUpdateRestic && /usr/sbin/installUpdateRestic
+}
 
 function sendEmailNotification(){
     if [ -e "/usr/lib/jelastic/modules/api.module" ]; then
@@ -66,7 +65,11 @@ function sendEmailNotification(){
 }
 
 function update_restic(){
-    restic self-update 2>&1;
+    if which restic; then
+        restic self-update || forceInstallUpdateRestic
+    else
+        forceInstallUpdateRestic
+    fi
 }
 
 function check_backup_repo(){
@@ -98,10 +101,13 @@ function rotate_snapshots(){
 function create_snapshot(){
     source /etc/jelastic/metainf.conf 
     echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
-    DUMP_NAME=$(date "+%F_%H%M%S_%Z"-${BACKUP_TYPE}\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE\))
+    DUMP_NAME=$(date "+%F_%H%M%S_%Z"-${BACKUP_TYPE}\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE$MONGO_TYPE\))
     if [ "$COMPUTE_TYPE" == "redis" ]; then
         RDB_TO_BACKUP=$(ls -d /tmp/* |grep redis-dump.*);
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${RDB_TO_BACKUP} | tee -a ${BACKUP_LOG_FILE};
+    elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
+        echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
+        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}	    
     else
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/db_backup.sql | tee -a ${BACKUP_LOG_FILE}
     fi
@@ -125,14 +131,38 @@ function backup(){
                 redis-cli -h $i --rdb /tmp/redis-dump-cluster-$i.rdb || { echo "DB backup process failed."; exit 1; }
             done
         fi
-    else
-        if [ "$COMPUTE_TYPE" == "postgres" ]; then
-            PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-	    PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin | grep -v '^ALTER ROLE webadmin WITH SUPERUSER' > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+    elif [ "$COMPUTE_TYPE" == "postgres" ]; then
+        PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
+	PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin | grep -v '^ALTER ROLE webadmin WITH SUPERUSER' > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+    elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
+        if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then
+            RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}');
+	    RS_SUFFIX="/?replicaSet=${RS_NAME}&readPreference=nearest";
         else
-            mysql -h localhost -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-            mysqldump -h localhost -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+            RS_SUFFIX="";
         fi
+	TLS_MODE=$(yq eval  '.net.tls.mode' /etc/mongod.conf)
+        if [ "$TLS_MODE" == "requireTLS" ]; then
+	    SSL_TLS_OPTIONS="--ssl --sslPEMKeyFile=/var/lib/jelastic/keys/SSL-TLS/client/client.pem --sslCAFile=/var/lib/jelastic/keys/SSL-TLS/client/root.pem --tlsInsecure"
+        else
+	    SSL_TLS_OPTIONS=""
+	fi
+        mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}"
+    else
+        SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
+        [ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
+        if which mariadb 2>/dev/null; then
+            CLIENT_APP="mariadb"
+        else
+            CLIENT_APP="mysql"
+        fi
+        if which mariadb-dump 2>/dev/null; then
+            DUMP_APP="mariadb-dump"
+        else
+            DUMP_APP="mysql"
+        fi
+        ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
     fi
     rm -f /var/run/${ENV_NAME}_backup.pid
 }

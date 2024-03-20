@@ -10,6 +10,8 @@ baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/ma
 targetNodes:
   nodeType: 
     - redis
+    - redis7
+    - redis6
     - postgresql
     - postgres15
     - postgres14
@@ -17,8 +19,17 @@ targetNodes:
     - postgres12
     - postgres11
     - mysql
+    - mysql5
+    - mysql8
     - mariadb-dockerized
+    - mariadb10
+    - mariadb11
+    - mongodb-dockerized
+    - mongodb
+    - mongo
     - perconadb
+    - percona8
+    - percona5
 
 settings:
   main:
@@ -127,12 +138,18 @@ settings:
         min: 1
         max: 30
         default: 5
+      - type: displayfield
+        name: displayfield
+        markup: Please specify the database user that has enough privileges to access and modify all the databases stored on server. Username and password are required for all the DB servers except Redis.
+        hidden: false
+        hideLabel: true
+        cls: warning
       - hideLabel: false
         hidden: false
         type: string
         caption: Database User
         name: dbuser
-        tooltip: In case you restore non-native database backup do not forget to provide its credentials instead of initial ones with help of add-on Configure action. It is relevant to <b>sqldb</b> databases only.
+        tooltip: In case you restore non-native database backup do not forget to provide its credentials instead of initial ones with help of add-on Configure action. It is relevant to <b>sqldb</b> databases and <b>MongoDB</b> only.
       - hideLabel: false
         hidden: false
         type: string
@@ -238,17 +255,9 @@ actions:
 
   installRestic:
     cmd [${targetNodes.nodeGroup}]: |-
-      if which dnf; then
-          dnf install epel-release
-          dnf install restic
-      else
-          yum-config-manager --disable nodesource
-          yum-config-manager --add-repo https://copr.fedorainfracloud.org/coprs/copart/restic/repo/epel-7/copart-restic-epel-7.repo
-          yum-config-manager --enable copr:copr.fedorainfracloud.org:copart:restic
-          yum -y install restic
-          yum-config-manager --disable copr:copr.fedorainfracloud.org:copart:restic
-          wget -O /etc/logrotate.d/backup-addon ${baseUrl}/scripts/backup-addon;
-      fi 
+        wget --tries=10 -O /tmp/installUpdateRestic ${baseUrl}/scripts/installUpdateRestic && \
+        mv -f /tmp/installUpdateRestic /usr/sbin/installUpdateRestic && \
+        chmod +x /usr/sbin/installUpdateRestic && /usr/sbin/installUpdateRestic
     user: root
 
   installScript:
