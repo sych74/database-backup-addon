@@ -372,7 +372,7 @@ actions:
   addPermanentMount:
     - getStorageCtid
     - script: |
-        return jelastic.env.file.AddMountPointById("${env.envName}", session, "${response.storageEnvShortName}", "/opt/backup", "nfs4", null, "/data/", "${response.storageCtid}", "DBBackupRestore", false);
+        return jelastic.env.file.AddMountPointById("${env.envName}", session, "${targetNodes.master.id}", "/opt/backup", "nfs4", null, "/data/", "${response.storageCtid}", "DBBackupRestore", false);
 
   removePermanentMount:
     - getStorageCtid
