@@ -125,6 +125,7 @@ if (scheduleType == '1') {
 }
 
 jps.settings.main.fields[2].default = '${settings.backupCount}';
+jps.settings.main.fields[3].value = '${settings.isAlwaysUmount}';
 jps.settings.main.fields[jps.settings.main.fields.length - 2].default = '${settings.dbuser}';
 jps.settings.main.fields[jps.settings.main.fields.length - 1].default = '${settings.dbpass}';
 
