@@ -102,6 +102,10 @@ function BackupManager(config) {
 	}
     }
 
+    me.initBoolValue = function initBoolValue(value) {
+        return typeof value == "boolean" ? value : String(value) != "false";
+    };
+
     me.backup = function () {
         var backupType,
             isManual = !getParam("task");
@@ -131,8 +135,8 @@ function BackupManager(config) {
             [ me.checkStorageEnvStatus ],
 	    [ me.checkCurrentlyRunningBackup ],
 	    [ me.checkCredentials ],
-            [ me.removeMounts ],
-            [ me.addMountForBackup ],
+            [ me.removeMounts, config.isAlwaysUmount ],
+            [ me.addMountForBackup, config.isAlwaysUmount ],
             [ me.cmd, [
 		'[ -f /root/%(envName)_backup-logic.sh ] && rm -f /root/%(envName)_backup-logic.sh || true',
                 'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh'
@@ -162,7 +166,7 @@ function BackupManager(config) {
             [ me.cmd, [
                 'bash /root/%(envName)_backup-logic.sh check_backup_repo %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email)'
             ], backupCallParams ],
-        [ me.removeMounts ]
+        [ me.removeMounts, config.isAlwaysUmount ]
         ]);
     };
 
@@ -172,8 +176,8 @@ function BackupManager(config) {
             [ me.checkStorageEnvStatus ],
 	    [ me.checkCurrentlyRunningBackup ],
 	    [ me.checkCredentials ],
-            [ me.removeMounts ],
-            [ me.addMountForRestore ],
+            [ me.removeMounts, config.isAlwaysUmount],
+            [ me.addMountForRestore, config.isAlwaysUmount ],
             [ me.cmd, [
 	        '[ -f /root/%(envName)_backup-logic.sh ] && rm -f /root/%(envName)_backup-logic.sh || true',
                 'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh'
@@ -213,7 +217,7 @@ function BackupManager(config) {
 		userSession: session,
 		restoreLogFile : "/var/log/backup_addon_restore.log"
             }],
-        [ me.removeMounts ]
+        [ me.removeMounts, config.isAlwaysUmount ]
     ]);
     }
 	
@@ -236,15 +240,17 @@ function BackupManager(config) {
         return { result : 0 };
     }
 
-    me.addMountForBackup = function addMountForBackup() {
+    me.addMountForBackup = function addMountForBackup(isAlwaysUmount) {
 	var delay = (Math.floor(Math.random() * 50) * 1000);
 	java.lang.Thread.sleep(delay);
-        return me.addMountForRestore();
+        return me.addMountForRestore(isAlwaysUmount);
     }
 	
-    me.addMountForRestore = function addMountForRestore() {
-	jelastic.marketplace.console.WriteLog("-----------: " + config.isAlwaysUmount);
-        if (config.isAlwaysUmount) {
+    me.addMountForRestore = function addMountForRestore(isAlwaysUmount) {
+	isAlwaysUmount = String(isAlwaysUmount) || false;
+        isAlwaysUmount = me.initBoolValue(isAlwaysUmount)
+	jelastic.marketplace.console.WriteLog("-----------: " + isAlwaysUmount);
+        if (isAlwaysUmount) {
 	    var resp = jelastic.env.file.AddMountPointById(config.envName, session, config.backupExecNode, "/opt/backup", 'nfs4', null, '/data/', config.storageNodeId, 'DBBackupRestore', false);
             if (resp.result != 0) {
                 var title = "Backup storage " + config.storageEnv + " is unreacheable",
@@ -260,9 +266,11 @@ function BackupManager(config) {
 	return { result : 0 };
     }
 
-    me.removeMounts = function removeMountForBackup() {
+    me.removeMounts = function removeMountForBackup(isAlwaysUmount) {
+	isAlwaysUmount = String(isAlwaysUmount) || false;
+        isAlwaysUmount = me.initBoolValue(isAlwaysUmount)
 	jelastic.marketplace.console.WriteLog("removeMountForBackup---------1--: " + config.isAlwaysUmount);
-	if (config.isAlwaysUmount) {
+	if (isAlwaysUmount) {
 	    jelastic.marketplace.console.WriteLog("removeMountForBackup---------2--: " + config.isAlwaysUmount);
             var allMounts = jelastic.env.file.GetMountPoints(config.envName, session, config.backupExecNode).array;
             for (var i = 0, n = allMounts.length; i < n; i++) {
