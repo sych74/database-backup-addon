@@ -261,7 +261,9 @@ function BackupManager(config) {
     }
 
     me.removeMounts = function removeMountForBackup() {
+	jelastic.marketplace.console.WriteLog("removeMountForBackup---------1--: " + config.isAlwaysUmount);
 	if (config.isAlwaysUmount) {
+	    jelastic.marketplace.console.WriteLog("removeMountForBackup---------2--: " + config.isAlwaysUmount);
             var allMounts = jelastic.env.file.GetMountPoints(config.envName, session, config.backupExecNode).array;
             for (var i = 0, n = allMounts.length; i < n; i++) {
                 if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
