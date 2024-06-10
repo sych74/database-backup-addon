@@ -138,6 +138,12 @@ settings:
         min: 1
         max: 30
         default: 5
+      - type: toggle
+        name: isAlwaysUmount
+        caption: Always umount
+        tooltip: "Always unmount backup storage when backup/restore is finished." 
+        value: false
+        hidden: false
       - type: displayfield
         name: displayfield
         markup: Please specify the database user that has enough privileges to access and modify all the databases stored on server. Username and password are required for all the DB servers except Redis.
@@ -224,6 +230,7 @@ onAfterClone:
       sat: ${settings.sat}
       tz: ${settings.tz}    
       backupCount: ${settings.backupCount}
+      isAlwaysUmount: ${settings.isAlwaysUmount}
 
 onAfterConfirmTransfer: setSchedule
 
@@ -273,6 +280,7 @@ actions:
         storageNodeId: ${response.storageCtid}
         backupExecNode: ${targetNodes.master.id}
         storageEnv: ${response.storageEnvShortName}
+        isAlwaysUmount: ${this.isAlwaysUmount}
         nodeGroup: ${this.nodeGroup}
         dbuser: ${this.dbuser}
         dbpass: ${this.dbpass}
@@ -350,6 +358,7 @@ actions:
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
+        isAlwaysUmount: ${this.isAlwaysUmount}
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
