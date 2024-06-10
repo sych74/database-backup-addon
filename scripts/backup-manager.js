@@ -243,6 +243,7 @@ function BackupManager(config) {
     }
 	
     me.addMountForRestore = function addMountForRestore() {
+	jelastic.marketplace.console.WriteLog("-----------: " + config.isAlwaysUmount);
         if (config.isAlwaysUmount) {
 	    var resp = jelastic.env.file.AddMountPointById(config.envName, session, config.backupExecNode, "/opt/backup", 'nfs4', null, '/data/', config.storageNodeId, 'DBBackupRestore', false);
             if (resp.result != 0) {
