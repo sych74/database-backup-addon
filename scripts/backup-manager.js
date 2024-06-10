@@ -10,6 +10,7 @@ function BackupManager(config) {
      *  envName : {String}
      *  envAppid : {String}
      *  storageNodeId : {String}
+     *  isAlwaysUmount : {Boolean}
      *  backupExecNode : {String}
      *  [nodeGroup] : {String}
      *  [storageEnv] : {String}
@@ -240,41 +241,41 @@ function BackupManager(config) {
     }
 	
     me.addMountForRestore = function addMountForRestore() {
-	var resp = jelastic.env.file.AddMountPointById(config.envName, session, config.backupExecNode, "/opt/backup", 'nfs4', null, '/data/', config.storageNodeId, 'DBBackupRestore', false);
-        if (resp.result != 0) {
-            var title = "Backup storage " + config.storageEnv + " is unreacheable",
-                text = "Backup storage environment " + config.storageEnv + " is not accessible for storing backups from " + config.envName + ". The error message is " + resp.error;
-            try {
-                jelastic.message.email.Send(appid, signature, null, user.email, user.email, title, text);
-            } catch (ex) {
-                emailResp = error(Response.ERROR_UNKNOWN, toJSON(ex));
+        if (config.isAlwaysUmount) {
+	    var resp = jelastic.env.file.AddMountPointById(config.envName, session, config.backupExecNode, "/opt/backup", 'nfs4', null, '/data/', config.storageNodeId, 'DBBackupRestore', false);
+            if (resp.result != 0) {
+                var title = "Backup storage " + config.storageEnv + " is unreacheable",
+                    text = "Backup storage environment " + config.storageEnv + " is not accessible for storing backups from " + config.envName + ". The error message is " + resp.error;
+                try {
+                    jelastic.message.email.Send(appid, signature, null, user.email, user.email, title, text);
+                } catch (ex) {
+                    emailResp = error(Response.ERROR_UNKNOWN, toJSON(ex));
+                }
             }
-        }
-        return resp;
+            return resp;
+    	}
+	return { result : 0 };
     }
 
     me.removeMounts = function removeMountForBackup() {
-        var allMounts = jelastic.env.file.GetMountPoints(config.envName, session, config.backupExecNode).array;
-        for (var i = 0, n = allMounts.length; i < n; i++) {
-            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
-                return jelastic.env.file.RemoveMountPointById(config.envName, session, config.backupExecNode, "/opt/backup");
-                if (resp.result != 0) {
-                    return resp;
+	if (config.isAlwaysUmount) {
+            var allMounts = jelastic.env.file.GetMountPoints(config.envName, session, config.backupExecNode).array;
+            for (var i = 0, n = allMounts.length; i < n; i++) {
+                if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+                    resp = jelastic.env.file.RemoveMountPointById(config.envName, session, config.backupExecNode, "/opt/backup");
+                    if (resp.result != 0) return resp;
                 }
             }
-        }
-        allMounts = jelastic.env.file.GetMountPoints(config.envName, session).array;
-        for (var i = 0, n = allMounts.length; i < n; i++) {
-            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
-                return jelastic.env.file.RemoveMountPointByGroup(config.envName, session, config.nodeGroup, "/opt/backup");
-                if (resp.result != 0) {
-                    return resp;
+            allMounts = jelastic.env.file.GetMountPoints(config.envName, session).array;
+            for (var i = 0, n = allMounts.length; i < n; i++) {
+                if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+                    resp = jelastic.env.file.RemoveMountPointByGroup(config.envName, session, config.nodeGroup, "/opt/backup");
+                    if (resp.result != 0) return resp;
                 }
             }
-        }
-        return {
-            "result": 0
-        };
+            return { result : 0 };
+	}
+    	return { result : 0 };
     }
 
     me.checkEnvStatus = function checkEnvStatus() {
