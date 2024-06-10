@@ -258,7 +258,7 @@ actions:
     - if ('${globals.alreadyInstalled}' == 'true' ):
       - stopEvent:
           type: warning
-          message: Wordpress backup add-on is already installed on ${env.name}. Database backup addon installation is not possible.
+          message: Database backup add-on is already installed on ${env.name}. Database backup addon installation is not possible.
 
   installRestic:
     cmd [${targetNodes.nodeGroup}]: |-
@@ -350,6 +350,7 @@ actions:
   setSchedule:
     - setGlobals: 
         storageEnv: ${settings.storageName}
+        isAlwaysUmount: ${settings.isAlwaysUmount}
     - if ("${settings.scheduleType}" == 2):
       - convert
     - else:
@@ -358,7 +359,7 @@ actions:
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
-        isAlwaysUmount: ${this.isAlwaysUmount}
+        isAlwaysUmount: ${globals.isAlwaysUmount}
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
