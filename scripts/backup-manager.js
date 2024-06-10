@@ -119,6 +119,7 @@ function BackupManager(config) {
                 backupLogFile : "/var/log/backup_addon.log",
                 baseUrl : config.baseUrl,
                 backupType : backupType,
+		isAlwaysUmount : config.isAlwaysUmount,
                 dbuser: config.dbuser,
                 dbpass: config.dbpass,
                 session : session,
@@ -204,6 +205,7 @@ function BackupManager(config) {
             ], {
                 nodeId : config.backupExecNode,
                 envName : config.envName,
+		isAlwaysUmount : config.isAlwaysUmount,
 		baseUrl : config.baseUrl,
 		dbuser: config.dbuser,
 		dbpass: config.dbpass,
