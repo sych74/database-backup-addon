@@ -356,6 +356,11 @@ actions:
     - else:
       - setGlobals:
           cron: ${settings.cronTime}
+    - if ("${settings.isAlwaysUmount}" == "true"):
+      - removePermanentMount
+    - else:
+      - removePermanentMount
+      - addPermanentMount
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
@@ -363,3 +368,27 @@ actions:
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
+        
+  addPermanentMount:
+    - getStorageCtid
+    - script: |
+        return jelastic.env.file.AddMountPointById(${env.envName}, session, ${response.storageEnvShortName}, "/opt/backup", 'nfs4', null, '/data/', ${response.storageCtid}, 'DBBackupRestore', false);
+
+  removePermanentMount:
+    - getStorageCtid
+    - script: |
+        var allMounts = jelastic.env.file.GetMountPoints(${env.envName}, session, ${targetNodes.master.id}).array;
+        for (var i = 0, n = allMounts.length; i < n; i++) {
+            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+              resp = jelastic.env.file.RemoveMountPointById(config.envName, session, config.backupExecNode, "/opt/backup");
+              if (resp.result != 0) { return resp; }
+            }
+        }
+        allMounts = jelastic.env.file.GetMountPoints(${env.envName}, session).array;
+        for (var i = 0, n = allMounts.length; i < n; i++) {
+            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+              resp = jelastic.env.file.RemoveMountPointByGroup(${env.envName}, session, "sqldb", "/opt/backup");
+              if (resp.result != 0) { return resp; }
+            }
+        }
+        return { "result": 0 };
