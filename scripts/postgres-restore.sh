@@ -14,6 +14,6 @@ sed -i -e '/^CREATE ROLE webadmin/d' \
        -e '/^ALTER ROLE postgres WITH SUPERUSER/d' \
        -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' "$TEMP_BACKUP"
 
-PGPASSWORD=${2} ${CLIENT_APP} --no-readline -q -U ${1} -d postgres < "$TEMP_BACKUP";
+PGPASSWORD=${2} ${CLIENT_APP} --no-readline -q -U ${1} -d postgres < "$TEMP_BACKUP" > /dev/null;
 
 [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
