@@ -5,7 +5,8 @@ id: db-backup
 targetEditions: any
 logo: /images/backup-logo.png
 description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases, even if the content has been completely deleted.
-baseUrl: https://raw.githubusercontent.com/sych74/database-backup-addon/JE-71677
+
+baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/master
 
 targetNodes:
   nodeType: 
