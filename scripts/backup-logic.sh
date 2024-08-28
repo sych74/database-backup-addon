@@ -133,7 +133,7 @@ function backup(){
         fi
     elif [ "$COMPUTE_TYPE" == "postgres" ]; then
         PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-	PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+	PGPASSWORD="${DBPASSWD}" pg_dumpall -U ${DBUSER} --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
         if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then
             RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}');
