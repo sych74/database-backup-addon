@@ -5,7 +5,6 @@ id: db-backup
 targetEditions: any
 logo: /images/backup-logo.png
 description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases, even if the content has been completely deleted.
-
 baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/master
 
 targetNodes:
@@ -298,6 +297,7 @@ actions:
 
   backup:
     - callScript: backup
+    - deleteDBdump
     
   restore:
     - cmd[${targetNodes.nodeGroup}]: |-
@@ -305,7 +305,13 @@ actions:
         echo "${settings.backupDir}" > /root/.backupid
       user: root
     - callScript: restore
+    - deleteDBdump
     
+  deleteDBdump:
+    - cmd[${targetNodes.nodeGroup}]: |-
+        [ -f /root/db_backup.sql ] && rm -f /root/db_backup.sql || exit 0;
+      user: root    
+
   configure:
     - setSchedule
         
