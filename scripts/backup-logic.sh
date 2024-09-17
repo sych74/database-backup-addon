@@ -11,6 +11,7 @@ DBPASSWD=$9
 USER_SESSION=${10}
 USER_EMAIL=${11}
 
+
 BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $1"/"$2}')
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
@@ -113,59 +114,97 @@ function create_snapshot(){
     fi
 }
 
+function backup_redis(){
+    source /etc/jelastic/metainf.conf;
+    RDB_TO_REMOVE=$(ls -d /tmp/* |grep redis-dump.*)
+    rm -f ${RDB_TO_REMOVE}
+    export REDISCLI_AUTH=$(cat ${REDIS_CONF_PATH} |grep '^requirepass'|awk '{print $2}');
+    if [ "$REDIS_TYPE" == "-standalone" ]; then
+        redis-cli --rdb /tmp/redis-dump-standalone.rdb
+    else
+        export MASTERS_LIST=$(redis-cli cluster nodes|grep master|grep -v fail|awk '{print $2}'|awk -F : '{print $1}');
+        for i in $MASTERS_LIST
+        do
+            redis-cli -h $i --rdb /tmp/redis-dump-cluster-$i.rdb || { echo "DB backup process failed."; exit 1; }
+        done
+    fi
+}
+
+function backup_postgres(){
+    PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
+    PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+}
+
+function backup_mongodb(){
+    if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then
+        RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}');
+        RS_SUFFIX="/?replicaSet=${RS_NAME}&readPreference=nearest";
+    else
+        RS_SUFFIX="";
+    fi
+    TLS_MODE=$(yq eval  '.net.tls.mode' /etc/mongod.conf)
+    if [ "$TLS_MODE" == "requireTLS" ]; then
+        SSL_TLS_OPTIONS="--ssl --sslPEMKeyFile=/var/lib/jelastic/keys/SSL-TLS/client/client.pem --sslCAFile=/var/lib/jelastic/keys/SSL-TLS/client/root.pem --tlsInsecure"
+    else
+        SSL_TLS_OPTIONS=""
+    fi
+        mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}"
+}
+
+function backup_mysql(){
+    SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
+    [ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
+    if which mariadb 2>/dev/null; then
+        CLIENT_APP="mariadb"
+    else
+        CLIENT_APP="mysql"
+    fi
+    if which mariadb-dump 2>/dev/null; then
+        DUMP_APP="mariadb-dump"
+    else
+        DUMP_APP="mysqldump"
+    fi
+    ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
+    ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+}
+
+function backup_mysql_binlogs() {
+    echo $(date) ${ENV_NAME} "Backing up MySQL binary logs..." | tee -a $BACKUP_LOG_FILE
+    mkdir -p ${MYSQL_BINLOG_DIR}
+    cp /var/lib/mysql/mysql-bin.* ${MYSQL_BINLOG_DIR}/
+    echo "MySQL binary logs backup completed." | tee -a $BACKUP_LOG_FILE
+}
+
+
+function pitr_backup_mysql() {
+    echo $(date) ${ENV_NAME} "Starting Point-In-Time Recovery (PITR) backup..." | tee -a $BACKUP_LOG_FILE
+    backup_mysql;
+    backup_mysql_binlogs;
+    echo $(date) ${ENV_NAME} "PITR backup completed." | tee -a $BACKUP_LOG_FILE
+}
+
+
 function backup(){
     echo $$ > /var/run/${ENV_NAME}_backup.pid
     echo $(date) ${ENV_NAME} "Creating the ${BACKUP_TYPE} backup (using the backup addon with commit id ${BACKUP_ADDON_COMMIT_ID}) on storage node ${NODE_ID}" | tee -a ${BACKUP_LOG_FILE}
     source /etc/jelastic/metainf.conf;
     echo $(date) ${ENV_NAME} "Creating the DB dump" | tee -a ${BACKUP_LOG_FILE}
     if [ "$COMPUTE_TYPE" == "redis" ]; then
-        RDB_TO_REMOVE=$(ls -d /tmp/* |grep redis-dump.*)
-        rm -f ${RDB_TO_REMOVE}
-        export REDISCLI_AUTH=$(cat ${REDIS_CONF_PATH} |grep '^requirepass'|awk '{print $2}');
-        if [ "$REDIS_TYPE" == "-standalone" ]; then
-            redis-cli --rdb /tmp/redis-dump-standalone.rdb
-        else
-            export MASTERS_LIST=$(redis-cli cluster nodes|grep master|grep -v fail|awk '{print $2}'|awk -F : '{print $1}');
-            for i in $MASTERS_LIST
-            do
-                redis-cli -h $i --rdb /tmp/redis-dump-cluster-$i.rdb || { echo "DB backup process failed."; exit 1; }
-            done
-        fi
+        backup_redis;
+
     elif [ "$COMPUTE_TYPE" == "postgres" ]; then
-        PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-	PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+        backup_postgres;
+    
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
-        if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then
-            RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}');
-	    RS_SUFFIX="/?replicaSet=${RS_NAME}&readPreference=nearest";
-        else
-            RS_SUFFIX="";
-        fi
-	TLS_MODE=$(yq eval  '.net.tls.mode' /etc/mongod.conf)
-        if [ "$TLS_MODE" == "requireTLS" ]; then
-	    SSL_TLS_OPTIONS="--ssl --sslPEMKeyFile=/var/lib/jelastic/keys/SSL-TLS/client/client.pem --sslCAFile=/var/lib/jelastic/keys/SSL-TLS/client/root.pem --tlsInsecure"
-        else
-	    SSL_TLS_OPTIONS=""
-	fi
-        mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}"
+        backup_mongodb;
+
     else
-        SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
-        [ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
-        if which mariadb 2>/dev/null; then
-            CLIENT_APP="mariadb"
-        else
-            CLIENT_APP="mysql"
-        fi
-        if which mariadb-dump 2>/dev/null; then
-            DUMP_APP="mariadb-dump"
-        else
-            DUMP_APP="mysqldump"
-        fi
-        ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+        backup_mysql;
+
     fi
     rm -f /var/run/${ENV_NAME}_backup.pid
 }
+
 
 case "$1" in
     backup)
@@ -178,10 +217,10 @@ case "$1" in
         $1
         ;;
     create_snapshot)
-	$1
-	;;
+        $1
+        ;;
      update_restic)
-	$1
+        $1
         ;;
     *)
         echo "Usage: $0 {backup|check_backup_repo|rotate_snapshots|create_snapshot|update_restic}"
