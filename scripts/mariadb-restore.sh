@@ -15,23 +15,20 @@ else
     CLIENT_APP="mysql"
 fi
 
-# Restore the full backup
 function restore_full() {
-    echo "Restoring the full backup from ${FULL_BACKUP_FILE}..."
+    echo $(date) ${ENV_NAME} "Restoring the full backup from ${FULL_BACKUP_FILE}" | tee -a $BACKUP_LOG_FILE;
     ${CLIENT_APP} --silent -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force < ${FULL_BACKUP_FILE}
     if [ $? -eq 0 ]; then
-        echo "Full backup restoration completed successfully."
+        echo $(date) ${ENV_NAME} "Full backup restoration completed successfully." | tee -a $BACKUP_LOG_FILE;
     else
-        echo "Error occurred while restoring the full backup."
+        echo $(date) ${ENV_NAME} "Error occurred while restoring the full backup." | tee -a $BACKUP_LOG_FILE;
         exit 1
     fi
 }
 
-# Restore using PITR (full backup + binary logs up to a point in time)
 function restore_pitr() {
-    echo "Restoring full backup for PITR..."
-    restore_full  # Restore the full backup first
-
+    echo $(date) ${ENV_NAME} "Restoring full backup for PITR..." | tee -a $BACKUP_LOG_FILE;
+    restore_full
     if [ -z "${STOP_TIME}" ]; then
         echo "Error: Please specify the stop time for PITR."
         exit 1
@@ -39,7 +36,6 @@ function restore_pitr() {
 
     echo "Applying binary logs until ${STOP_TIME} for PITR..."
 
-    # Apply binary logs up to the specified stop time
     mysqlbinlog --stop-datetime="${STOP_TIME}" /opt/backup/mysql_binlogs/mysql-bin.* | ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD}
     if [ $? -eq 0 ]; then
         echo "Binary logs applied successfully up to ${STOP_TIME}."
@@ -49,7 +45,6 @@ function restore_pitr() {
     fi
 }
 
-# Main restore logic
 if [ "${RESTORE_TYPE}" == "full" ]; then
     restore_full
 elif [ "${RESTORE_TYPE}" == "pitr" ]; then
