@@ -11,6 +11,7 @@ function BackupManager(config) {
      *  envAppid : {String}
      *  storageNodeId : {String}
      *  isAlwaysUmount : {Boolean}
+     *  isPitr : {Boolean}
      *  backupExecNode : {String}
      *  [nodeGroup] : {String}
      *  [storageEnv] : {String}
@@ -124,6 +125,7 @@ function BackupManager(config) {
                 baseUrl : config.baseUrl,
                 backupType : backupType,
 		isAlwaysUmount : config.isAlwaysUmount,
+		isPitr : config.isPitr,
                 dbuser: config.dbuser,
                 dbpass: config.dbpass,
                 session : session,
@@ -210,6 +212,7 @@ function BackupManager(config) {
                 nodeId : config.backupExecNode,
                 envName : config.envName,
 		isAlwaysUmount : config.isAlwaysUmount,
+		isPirt : config.isPirt,
 		baseUrl : config.baseUrl,
 		dbuser: config.dbuser,
 		dbpass: config.dbpass,
