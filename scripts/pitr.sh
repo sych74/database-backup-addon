@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DBUSER=$1
-DBPASSWD=$2
-ACTION=$3
+ACTION=$1
+DBUSER=$2
+DBPASSWD=$3
 
 PITR_CONF='/etc/mysql/conf.d/pitr.cnf'
 SUCCESS_CODE=0
