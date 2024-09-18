@@ -17,6 +17,7 @@ function run() {
         backupCount       : "${backupCount}",
         storageEnv        : "${storageEnv}",
         isAlwaysUmount    : "${isAlwaysUmount}",
+        isPitr            : "${isPitr}",
         nodeGroup         : "${nodeGroup}",
         dbuser            : "${dbuser}",
         dbpass            : "${dbpass}"
