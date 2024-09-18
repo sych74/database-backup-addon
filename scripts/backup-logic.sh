@@ -165,7 +165,7 @@ function backup_mysql(){
         DUMP_APP="mysqldump"
     fi
     ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-    ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+    ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
 }
 
 function backup_mysql_binlogs() {
