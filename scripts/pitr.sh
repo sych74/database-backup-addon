@@ -24,8 +24,10 @@ check_pitr() {
   EXPIRE_LOGS=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE '$BINLOG_EXPIRE_SETTING';" | awk '{ print $2 }')
   if [[ -n "$LOG_BIN" && "$EXPIRE_LOGS" == "$EXPIRY_SETTING" ]]; then
     echo '{"result":0}';
+    return 0;
   else
     echo '{"result":702}';
+    return 702;
   fi
 }
 
