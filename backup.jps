@@ -144,6 +144,12 @@ settings:
         tooltip: "Always unmount backup storage when backup/restore is finished." 
         value: false
         hidden: false
+      - type: toggle
+        name: isPitr
+        caption: PITR
+        tooltip: "Point-in-Time Recovery." 
+        value: false
+        hidden: false
       - type: displayfield
         name: displayfield
         markup: Please specify the database user that has enough privileges to access and modify all the databases stored on server. Username and password are required for all the DB servers except Redis.
@@ -281,6 +287,7 @@ actions:
         backupExecNode: ${targetNodes.master.id}
         storageEnv: ${response.storageEnvShortName}
         isAlwaysUmount: ${this.isAlwaysUmount}
+        isPitr: ${this.isPitr}
         nodeGroup: ${this.nodeGroup}
         dbuser: ${this.dbuser}
         dbpass: ${this.dbpass}
@@ -358,6 +365,7 @@ actions:
     - setGlobals: 
         storageEnv: ${settings.storageName}
         isAlwaysUmount: ${settings.isAlwaysUmount}
+        isPitr: ${settings.isPitr}
     - if ("${settings.scheduleType}" == 2):
       - convert
     - else:
@@ -372,6 +380,7 @@ actions:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
         isAlwaysUmount: ${globals.isAlwaysUmount}
+        isPitr: ${globals.isPitr}
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
