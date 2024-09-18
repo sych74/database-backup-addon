@@ -4,50 +4,42 @@ DBUSER=$1
 DBPASSWD=$2
 ACTION=$3
 
+PITR_CONF='/etc/mysql/conf.d/pitr.cnf'
+SUCCESS_CODE=0
+ERROR_CODE=99
+PITR_ERROR_CODE=701
+
+source /etc/jelastic/metainf.conf
+COMPUTE_TYPE_FULL_VERSION_FORMATTED=$(echo "$COMPUTE_TYPE_FULL_VERSION" | sed 's/\.//')
+if [[ ("$COMPUTE_TYPE" == "mysql" || "$COMPUTE_TYPE" == "percona") && "$COMPUTE_TYPE_FULL_VERSION_FORMATTED" -ge "81" ]]; then
+  BINLOG_EXPIRE_SETTING="binlog_expire_logs_seconds"
+  EXPIRY_SETTING="604800"
+elif [[ "$COMPUTE_TYPE" == "mariadb" ]]; then
+  BINLOG_EXPIRE_SETTING="expire_logs_days"
+  EXPIRY_SETTING="7"
+else
+  echo "{result:$ERROR_CODE, out:'Fail detect DB server'}"
+  exit 0
+fi
+  
 check_pitr() {
-  MYSQL_VERSION=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SELECT VERSION();")
-  MYSQL_MAJOR_VERSION=$(echo "$MYSQL_VERSION" | cut -d. -f1)
-
-  if [[ "$MYSQL_MAJOR_VERSION" -ge 8 ]]; then
-    BINLOG_EXPIRE_SETTING="binlog_expire_logs_seconds"
-    EXPIRY_SETTING="604800" # 7 дней в секундах
-  else
-    BINLOG_EXPIRE_SETTING="expire_logs_days"
-    EXPIRY_SETTING="7"
-  fi
-
   LOG_BIN=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE 'log_bin';" | grep "ON")
   EXPIRE_LOGS=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE '$BINLOG_EXPIRE_SETTING';" | awk '{ print $2 }')
 
   if [[ -n "$LOG_BIN" && "$EXPIRE_LOGS" == "$EXPIRY_SETTING" ]]; then
-    echo '{"result":0}'
+    echo "{result:$SUCCESS_CODE}"
   else
-    echo '{"result":702}'
+    echo "{result:$PITR_ERROR_CODE}"
   fi
 }
 
 setup_pitr() {
-
-  MYSQL_VERSION=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SELECT VERSION();")
-  MYSQL_MAJOR_VERSION=$(echo "$MYSQL_VERSION" | cut -d. -f1)
-
-  if [[ "$MYSQL_MAJOR_VERSION" -ge 8 ]]; then
-    CONFIG="
+  CONFIG="
 [mysqld]
 log-bin=mysql-bin
-binlog_expire_logs_seconds=604800
+$BINLOG_EXPIRE_SETTING=$EXPIRY_SETTING
 "
-  else
-    CONFIG="
-[mysqld]
-log-bin=mysql-bin
-expire_logs_days=7
-"
-  fi
-
-  CONFIG_FILE="/etc/conf.d/mysql/pitr.cnf"
-  echo "$CONFIG" > "$CONFIG_FILE"
-
+  echo "$CONFIG" > "$PITR_CONF"
 }
 
 case $ACTION in
