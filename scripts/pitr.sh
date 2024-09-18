@@ -5,9 +5,6 @@ DBUSER=$2
 DBPASSWD=$3
 
 PITR_CONF='/etc/mysql/conf.d/pitr.cnf'
-SUCCESS_CODE=0
-ERROR_CODE=99
-PITR_ERROR_CODE=701
 
 source /etc/jelastic/metainf.conf
 COMPUTE_TYPE_FULL_VERSION_FORMATTED=$(echo "$COMPUTE_TYPE_FULL_VERSION" | sed 's/\.//')
@@ -18,18 +15,17 @@ elif [[ "$COMPUTE_TYPE" == "mariadb" ]]; then
   BINLOG_EXPIRE_SETTING="expire_logs_days"
   EXPIRY_SETTING="7"
 else
-  echo "{result:$ERROR_CODE, out:'Fail detect DB server'}"
+  echo '{"result":99}';
   exit 0
 fi
   
 check_pitr() {
   LOG_BIN=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE 'log_bin';" | grep "ON")
   EXPIRE_LOGS=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE '$BINLOG_EXPIRE_SETTING';" | awk '{ print $2 }')
-
   if [[ -n "$LOG_BIN" && "$EXPIRE_LOGS" == "$EXPIRY_SETTING" ]]; then
-    echo "{result:$SUCCESS_CODE}"
+    echo '{"result":0}';
   else
-    echo "{result:$PITR_ERROR_CODE}"
+    echo '{"result":702}';
   fi
 }
 
