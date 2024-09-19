@@ -16,7 +16,6 @@ elif [[ "$COMPUTE_TYPE" == "mariadb" ]]; then
   EXPIRY_SETTING="7"
 else
   echo '{"result":99}';
-  exit 0
 fi
   
 check_pitr() {
@@ -27,7 +26,6 @@ check_pitr() {
     return 0;
   else
     echo '{"result":702}';
-    return 702;
   fi
 }
 
