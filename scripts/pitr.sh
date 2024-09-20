@@ -30,6 +30,11 @@ check_pitr() {
 }
 
 setup_pitr() {
+  check_pitr | grep -q '"result":0'
+  if [[ $? -eq 0 ]]; then
+    exit 0;
+  fi
+
   CONFIG="
 [mysqld]
 log-bin=mysql-bin
