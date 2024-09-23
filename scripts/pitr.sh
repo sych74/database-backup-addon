@@ -41,6 +41,7 @@ log-bin=mysql-bin
 $BINLOG_EXPIRE_SETTING=$EXPIRY_SETTING
 "
   echo "$CONFIG" > "$PITR_CONF"
+  jem service restart;
 }
 
 case $ACTION in
