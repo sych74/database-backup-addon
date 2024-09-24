@@ -150,6 +150,14 @@ settings:
         tooltip: "Point in time recovery" 
         value: false
         hidden: false
+        showIf:
+          true:
+          - type: displayfield
+            cls: warning
+            height: 30,
+            hideLabel: true,
+            markup: "Database doesnt configured for PITR support. Please push apply for automatic configuring or close and manually configure acording to instruction and reinstall addon"          
+          
       - type: displayfield
         name: displayPitr
         markup: ""
@@ -256,8 +264,7 @@ globals:
   scriptSufix: db-backup
 
 onInstall:
-  - return:
-      type: success
+
   - checkAddons
   - installRestic
   - setSchedule
@@ -421,7 +428,7 @@ actions:
     - setGlobals: 
         storageEnv: ${settings.storageName}
         isAlwaysUmount: ${settings.isAlwaysUmount}
-        isPitr: ${settings.isPitr:false}
+        isPitr: ${settings.isPitr}
     - if ("${settings.scheduleType}" == 2):
       - convert
     - else:
@@ -432,6 +439,7 @@ actions:
     - else:
       - removePermanentMount
       - addPermanentMount
+    - if ("${settings.isPitr}" == "true"): setupPitr      
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
@@ -440,7 +448,12 @@ actions:
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
-        
+
+  setupPitr:
+    cmd[${nodes.sqldb.master.id}]: |-
+        wget --tries=10 -O /tmp/pitr.sh ${baseUrl}/scripts/pitr.sh && \
+        chmod +x /tmp/pitr.sh && /tmp/pitr.sh setupPitr ${settings.dbuser} ${settings.dbpass};
+
   addPermanentMount:
     - getStorageCtid
     - script: |
