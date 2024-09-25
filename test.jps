@@ -350,7 +350,7 @@ actions:
         backupExecNode: ${targetNodes.master.id}
         storageEnv: ${response.storageEnvShortName}
         isAlwaysUmount: ${this.isAlwaysUmount}
-        isPitr: ${this.isPitr:false}
+        isPitr: ${this.isPitr}
         nodeGroup: ${this.nodeGroup}
         dbuser: ${this.dbuser}
         dbpass: ${this.dbpass}
