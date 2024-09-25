@@ -10,11 +10,15 @@ DBUSER=$8
 DBPASSWD=$9
 USER_SESSION=${10}
 USER_EMAIL=${11}
-
+PITR=${12}
 
 BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $1"/"$2}')
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
+
+if [ -z "$PITR" ]; then
+    PITR="false"
+fi
 
 if [ "$COMPUTE_TYPE" == "mongodb" ]; then
     if grep -q '^replication' /etc/mongod.conf; then
@@ -165,7 +169,11 @@ function backup_mysql(){
         DUMP_APP="mysqldump"
     fi
     ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-    ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+    if [ "$PITR" == "true" ]; then
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+    else
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+    fi
 }
 
 function backup_mysql_binlogs() {
@@ -210,6 +218,9 @@ case "$1" in
     backup)
         $1
         ;;
+    pitr_backup_mysql)
+        $1
+        ;;
     check_backup_repo)
         $1
         ;;
@@ -219,7 +230,7 @@ case "$1" in
     create_snapshot)
         $1
         ;;
-     update_restic)
+    update_restic)
         $1
         ;;
     *)
