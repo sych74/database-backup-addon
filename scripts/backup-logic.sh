@@ -155,7 +155,7 @@ function backup_mongodb(){
         mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}"
 }
 
-function backup_mysql(){
+function backup_mysql_dump(){
     SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
     [ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
     if which mariadb 2>/dev/null; then
@@ -184,9 +184,9 @@ function backup_mysql_binlogs() {
 }
 
 
-function pitr_backup_mysql() {
+function backup_mysql_pitr() {
     echo $(date) ${ENV_NAME} "Starting Point-In-Time Recovery (PITR) backup..." | tee -a $BACKUP_LOG_FILE
-    backup_mysql;
+    backup_mysql_dump;
     backup_mysql_binlogs;
     echo $(date) ${ENV_NAME} "PITR backup completed." | tee -a $BACKUP_LOG_FILE
 }
@@ -207,7 +207,7 @@ function backup(){
         backup_mongodb;
 
     else
-        backup_mysql;
+        backup_mysql_dump;
 
     fi
     rm -f /var/run/${ENV_NAME}_backup.pid
