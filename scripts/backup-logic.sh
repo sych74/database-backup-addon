@@ -16,6 +16,12 @@ BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
 
+DUMP_BACKUP_DIR=/root/backup/dump
+BINLOGS_BACKUP_DIR=/root/backup/binlogs
+SQL_DUMP_NAME=db_backup.sql
+
+rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
+
 if [ -z "$PITR" ]; then
     PITR="false"
 fi
@@ -37,6 +43,20 @@ if [ "$COMPUTE_TYPE" == "redis" ]; then
     else
         REDIS_TYPE="-standalone"
     fi
+fi
+
+SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
+[ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
+if which mariadb 2>/dev/null; then
+    CLIENT_APP="mariadb"
+else
+    CLIENT_APP="mysql"
+fi
+
+if which mariadb-dump 2>/dev/null; then
+    DUMP_APP="mariadb-dump"
+else
+    DUMP_APP="mysqldump"
 fi
 
 function forceInstallUpdateRestic(){
@@ -80,7 +100,7 @@ function update_restic(){
 function check_backup_repo(){
     [ -d /opt/backup/${ENV_NAME} ] || mkdir -p /opt/backup/${ENV_NAME}
     export FILES_COUNT=$(ls -n /opt/backup/${ENV_NAME}|awk '{print $2}');
-    if [ "${FILES_COUNT}" != "0" ]; then 
+    if [ "${FILES_COUNT}" != "0" ]; then
         echo $(date) ${ENV_NAME}  "Checking the backup repository integrity and consistency" | tee -a $BACKUP_LOG_FILE;
         if [[ $(ls -A /opt/backup/${ENV_NAME}/locks) ]] ; then
 	    echo $(date) ${ENV_NAME}  "Backup repository has a slate lock, removing" | tee -a $BACKUP_LOG_FILE;
@@ -98,23 +118,39 @@ function rotate_snapshots(){
     if [[ $(ls -A /opt/backup/${ENV_NAME}/locks) ]] ; then
         echo $(date) ${ENV_NAME}  "Backup repository has a slate lock, removing" | tee -a $BACKUP_LOG_FILE;
         GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} unlock
-	sendEmailNotification
+        sendEmailNotification
     fi
     { GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic forget -q -r /opt/backup/${ENV_NAME} --keep-last ${BACKUP_COUNT} --prune | tee -a $BACKUP_LOG_FILE; } || { echo "Backup rotation failed."; exit 1; }
 }
 
+
+function get_binlog_file(){
+    local binlog_file=$(${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW MASTER STATUS" | awk 'NR==2 {print $1}')
+    echo $(date) ${ENV_NAME} "Getting the binlog_file: ${binlog_file}" >> ${BACKUP_LOG_FILE}
+    echo $binlog_file
+}
+
+function get_binlog_position(){
+    local binlog_pos=$(${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW MASTER STATUS" | awk 'NR==2 {print $2}')
+    echo $(date) ${ENV_NAME} "Getting the binlog_position: ${binlog_pos}" >> ${BACKUP_LOG_FILE}
+    echo $binlog_pos
+}
+
 function create_snapshot(){
-    source /etc/jelastic/metainf.conf 
-    echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
+    source /etc/jelastic/metainf.conf
     DUMP_NAME=$(date "+%F_%H%M%S_%Z"-${BACKUP_TYPE}\($COMPUTE_TYPE-$COMPUTE_TYPE_FULL_VERSION$REDIS_TYPE$MONGO_TYPE\))
+    echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
     if [ "$COMPUTE_TYPE" == "redis" ]; then
         RDB_TO_BACKUP=$(ls -d /tmp/* |grep redis-dump.*);
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${RDB_TO_BACKUP} | tee -a ${BACKUP_LOG_FILE};
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
-        echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
-        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}	    
+        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}
     else
-        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/db_backup.sql | tee -a ${BACKUP_LOG_FILE}
+        if [ "$PITR" == "true" ]; then
+            GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" --tag "$(get_binlog_file)" --tag "$(get_binlog_position)" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
+        else
+            GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}        
+        fi
     fi
 }
 
@@ -136,7 +172,7 @@ function backup_redis(){
 
 function backup_postgres(){
     PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-    PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+    PGPASSWORD="${DBPASSWD}" pg_dumpall -U webadmin --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; }
 }
 
 function backup_mongodb(){
@@ -156,23 +192,11 @@ function backup_mongodb(){
 }
 
 function backup_mysql_dump(){
-    SERVER_IP_ADDR=$(ip a | grep -A1 venet0 | grep inet | awk '{print $2}'| sed 's/\/[0-9]*//g' | tail -n 1)
-    [ -n "${SERVER_IP_ADDR}" ] || SERVER_IP_ADDR="localhost"
-    if which mariadb 2>/dev/null; then
-        CLIENT_APP="mariadb"
-    else
-        CLIENT_APP="mysql"
-    fi
-    if which mariadb-dump 2>/dev/null; then
-        DUMP_APP="mariadb-dump"
-    else
-        DUMP_APP="mysqldump"
-    fi
     ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
     if [ "$PITR" == "true" ]; then
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > ${TMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
     else
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > ${TMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
     fi
 }
 
@@ -200,11 +224,11 @@ function backup(){
     if [ "$COMPUTE_TYPE" == "redis" ]; then
         backup_redis;
 
-    elif [ "$COMPUTE_TYPE" == "postgres" ]; then
-        backup_postgres;
-    
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
         backup_mongodb;
+        
+    elif [ "$COMPUTE_TYPE" == "postgres" ]; then
+        backup_postgres;
 
     else
         backup_mysql_dump;
