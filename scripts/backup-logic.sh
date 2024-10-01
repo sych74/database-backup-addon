@@ -246,6 +246,14 @@ function backup_mysql_pitr() {
     echo $(date) ${ENV_NAME} "PITR backup completed." | tee -a $BACKUP_LOG_FILE
 }
 
+
+function create_binlog_snapshot(){
+    local snapshot_name="$1"
+    echo $(date) ${ENV_NAME} "Saving the BINLOGS to ${snapshot_name} snapshot" | tee -a ${BACKUP_LOG_FILE}
+    GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${snapshot_name}" --tag "BINLOGS" ${BINLOGS_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
+        
+}
+
 function backup_mysql(){
     backup_mysql_dump;
     if [ "$PITR" == "true" ]; then
@@ -254,8 +262,7 @@ function backup_mysql(){
             dump_name=$(get_dump_name_by_snapshot_id $latest_pitr_snapshot_id)
             start_binlog_file=$(get_binlog_file_by_snapshot_id $latest_pitr_snapshot_id)
             backup_mysql_binlogs $start_binlog_file
-            
-            echo ------$start_binlog_file
+            create_binlog_snapshot "${dump_name}"
         fi
     fi
     create_snapshot;
