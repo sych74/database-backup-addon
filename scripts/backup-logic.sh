@@ -20,7 +20,8 @@ DUMP_BACKUP_DIR=/root/backup/dump
 BINLOGS_BACKUP_DIR=/root/backup/binlogs
 SQL_DUMP_NAME=db_backup.sql
 
-rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
+##rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
+
 
 if [ -z "$PITR" ]; then
     PITR="false"
@@ -147,12 +148,32 @@ function create_snapshot(){
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}
     else
         if [ "$PITR" == "true" ]; then
-            GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" --tag "$(get_binlog_file)" --tag "$(get_binlog_position)" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
+            GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" --tag "PITR" --tag "$(get_binlog_file)" --tag "$(get_binlog_position)" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
         else
             GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}        
         fi
     fi
 }
+
+function get_latest_pitr_snapshot_id(){
+    local latest_pitr_snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --tag "PITR" --latest 1 --json | jq -r '.[0].short_id')
+    echo $(date) ${ENV_NAME} "Getting the latest PITR snapshot: ${latest_pitr_snapshot_id}" >> ${BACKUP_LOG_FILE}
+    echo ${latest_pitr_snapshot_id}
+}
+
+function get_dump_name_by_snapshot_id(){
+    local snapshot_id="$1"
+    local dump_name=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r --arg id "$snapshot_id" '.[] | select(.short_id == $id) | .tags[0]')
+    echo $(date) ${ENV_NAME} "Getting the dump name: ${dump_name}" >> ${BACKUP_LOG_FILE}
+    echo ${dump_name}
+}
+
+
+function create_binlog_snapshot(){
+  echo
+
+}
+
 
 function backup_redis(){
     source /etc/jelastic/metainf.conf;
