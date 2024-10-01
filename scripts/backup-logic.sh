@@ -16,6 +16,8 @@ BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
 
+
+
 DUMP_BACKUP_DIR=/root/backup/dump
 BINLOGS_BACKUP_DIR=/root/backup/binlogs
 SQL_DUMP_NAME=db_backup.sql
@@ -169,6 +171,13 @@ function get_dump_name_by_snapshot_id(){
 }
 
 
+function get_binlog_file_by_snapshot_id(){
+    local snapshot_id="$1"
+    local binlog_file=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r --arg id "$snapshot_id" '.[] | select(.short_id == $id) | .tags[2]')
+    echo $(date) ${ENV_NAME} "Getting the start binlog file name: ${binlog_file}" >> ${BACKUP_LOG_FILE}
+    echo ${binlog_file}
+}
+
 function create_binlog_snapshot(){
   echo
 
@@ -215,16 +224,17 @@ function backup_mongodb(){
 function backup_mysql_dump(){
     ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
     if [ "$PITR" == "true" ]; then
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > ${TMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --master-data=2 --flush-logs --force --single-transaction --quote-names --opt --all-databases > ${DUMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
     else
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > ${TMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > ${DUMP_BACKUP_DIR}/${SQL_DUMP_NAME} || { echo "DB backup process failed."; exit 1; }
     fi
 }
 
 function backup_mysql_binlogs() {
-    echo $(date) ${ENV_NAME} "Backing up MySQL binary logs..." | tee -a $BACKUP_LOG_FILE
-    mkdir -p ${MYSQL_BINLOG_DIR}
-    cp /var/lib/mysql/mysql-bin.* ${MYSQL_BINLOG_DIR}/
+    local start_binlog_file="$1"
+    echo $(date) ${ENV_NAME} "Backing up MySQL binary logs from $start_binlog_file..." | tee -a $BACKUP_LOG_FILE
+    rm -rf ${BINLOGS_BACKUP_DIR} && mkdir -p ${BINLOGS_BACKUP_DIR}
+    find /var/lib/mysql -type f -name "mysql-bin.*" -newer /var/lib/mysql/${start_binlog_file} -o -name "${start_binlog_file}" -exec cp {} ${BINLOGS_BACKUP_DIR} \;
     echo "MySQL binary logs backup completed." | tee -a $BACKUP_LOG_FILE
 }
 
@@ -234,6 +244,21 @@ function backup_mysql_pitr() {
     backup_mysql_dump;
     backup_mysql_binlogs;
     echo $(date) ${ENV_NAME} "PITR backup completed." | tee -a $BACKUP_LOG_FILE
+}
+
+function backup_mysql(){
+    backup_mysql_dump;
+    if [ "$PITR" == "true" ]; then
+        latest_pitr_snapshot_id=$(get_latest_pitr_snapshot_id)
+        if [ "x$latest_pitr_snapshot_id" != "xnull" ]; then
+            dump_name=$(get_dump_name_by_snapshot_id $latest_pitr_snapshot_id)
+            start_binlog_file=$(get_binlog_file_by_snapshot_id $latest_pitr_snapshot_id)
+            backup_mysql_binlogs $start_binlog_file
+            
+            echo ------$start_binlog_file
+        fi
+    fi
+    create_snapshot;
 }
 
 
@@ -252,7 +277,7 @@ function backup(){
         backup_postgres;
 
     else
-        backup_mysql_dump;
+        backup_mysql;
 
     fi
     rm -f /var/run/${ENV_NAME}_backup.pid
