@@ -22,7 +22,7 @@ fi
 
 if [ "$PITR" == "true" ]; then
     if [ -f /root/.backuptime ]; then
-        BACKUP_TIME=$(cat /root/.backuptime)
+        PITR_TIME=$(cat /root/.pitrtime)
     else
         echo "The /root/.backuptime file with BACKUP_TIME doesnt exist."
         exit 1;
@@ -36,7 +36,7 @@ else
     fi
 fi
 
-function find_closest_snapshot_id_before_time() {
+function get_snapshot_id_before_time() {
     local target_datetime="$1"
     RESTIC_PASSWORD=env-9009578 restic -r /opt/backup/env-9009578 snapshots --tag "PITR" --json | jq -r '.[] | "\(.time) \(.short_id) \(.tags[0])"' | sort -r | while read snapshot_time      snapshot_id snapshot_tag; do
         snapshot_tag_date=$(echo "$snapshot_tag" | grep -oP '\d{4}-\d{2}-\d{2}_\d{6}')
@@ -51,10 +51,9 @@ function find_closest_snapshot_id_before_time() {
     if [[ -z "$result_snapshot_id" ]]; then
         echo $(date) ${ENV_NAME} "Error: Failed to get DB dump snapshot ID before time $target_datetime" | tee -a ${RESTORE_LOG_FILE}
         exit 1
-    else
-        echo $(date) ${ENV_NAME} "Getting DB dump snapshot ID before time $target_datetime: $result_snapshot_id" >> ${RESTORE_LOG_FILE}
-        echo $result_snapshot_id;
     fi
+    echo $(date) ${ENV_NAME} "Getting DB dump snapshot ID before time $target_datetime: $result_snapshot_id" >> ${RESTORE_LOG_FILE}
+    echo $result_snapshot_id;
 }
 
 function get_dump_snapshot_id_by_name(){
@@ -71,7 +70,7 @@ function get_dump_snapshot_id_by_name(){
 function get_binlog_snapshot_id_by_name(){
     local backup_name="$1"
     local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --tag "BINLOGS" --json | jq -r '.[] | select(.tags[0] | contains('$backup_name')) | .short_id')
-    if [[ $? -ne 0 || -z "$snapshot_id" ]]; then
+    if [[ $? -ne 0 ]]; then
         echo $(date) ${ENV_NAME} "Error: Failed to get DB binlogs snapshot ID" | tee -a ${RESTORE_LOG_FILE}
         exit 1
     fi
@@ -101,3 +100,17 @@ function restore_snapshot_by_id(){
     echo $(date) ${ENV_NAME} "Snapshot ID: $snapshot_id restored successfully" >> ${RESTORE_LOG_FILE}
 }
 
+function restore_mysql(){
+    if [ "$PITR" == "true" ]; then
+        dump_snapshot_id=$(get_snapshot_id_before_time "${PITR_TIME}")
+        dump_snapshot_name=$(get_snapshot_name_by_id "${dump_snapshot_id}")
+        binlog_snapshot_id=$(get_binlog_snapshot_id_by_name "${dump_snapshot_name}")
+        restore_snapshot_by_id "${dump_snapshot_id}"
+        restore_snapshot_by_id "${binlog_snapshot_id}"
+    else
+        dump_snapshot_id=$(get_dump_snapshot_id_by_name "${BACKUP_NAME}")
+        restore_snapshot_by_id "${dump_snapshot_id}"
+    fi
+}
+
+restore_mysql;
