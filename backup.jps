@@ -6,7 +6,7 @@ targetEditions: any
 logo: /images/backup-logo.png
 description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases, even if the content has been completely deleted.
 
-baseUrl: https://raw.githubusercontent.com/sych74/database-backup-addon/JE-72426
+baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/master
 
 targetNodes:
   nodeType: 
@@ -139,6 +139,12 @@ settings:
         min: 1
         max: 30
         default: 5
+      - type: toggle
+        name: isAlwaysUmount
+        caption: Always umount
+        tooltip: "Always unmount backup storage when backup/restore is finished." 
+        value: false
+        hidden: false
       - type: displayfield
         name: displayfield
         markup: Please specify the database user that has enough privileges to access and modify all the databases stored on server. Username and password are required for all the DB servers except Redis.
@@ -225,6 +231,7 @@ onAfterClone:
       sat: ${settings.sat}
       tz: ${settings.tz}    
       backupCount: ${settings.backupCount}
+      isAlwaysUmount: ${settings.isAlwaysUmount}
 
 onAfterConfirmTransfer: setSchedule
 
@@ -252,7 +259,7 @@ actions:
     - if ('${globals.alreadyInstalled}' == 'true' ):
       - stopEvent:
           type: warning
-          message: Wordpress backup add-on is already installed on ${env.name}. Database backup addon installation is not possible.
+          message: Database backup add-on is already installed on ${env.name}. Database backup addon installation is not possible.
 
   installRestic:
     cmd [${targetNodes.nodeGroup}]: |-
@@ -274,6 +281,7 @@ actions:
         storageNodeId: ${response.storageCtid}
         backupExecNode: ${targetNodes.master.id}
         storageEnv: ${response.storageEnvShortName}
+        isAlwaysUmount: ${this.isAlwaysUmount}
         nodeGroup: ${this.nodeGroup}
         dbuser: ${this.dbuser}
         dbpass: ${this.dbpass}
@@ -298,6 +306,7 @@ actions:
 
   backup:
     - callScript: backup
+    - deleteDBdump
     
   restore:
     - cmd[${targetNodes.nodeGroup}]: |-
@@ -305,7 +314,13 @@ actions:
         echo "${settings.backupDir}" > /root/.backupid
       user: root
     - callScript: restore
+    - deleteDBdump
     
+  deleteDBdump:
+    - cmd[${targetNodes.nodeGroup}]: |-
+        [ -f /root/db_backup.sql ] && rm -f /root/db_backup.sql || exit 0;
+      user: root    
+
   configure:
     - setSchedule
         
@@ -343,14 +358,45 @@ actions:
   setSchedule:
     - setGlobals: 
         storageEnv: ${settings.storageName}
+        isAlwaysUmount: ${settings.isAlwaysUmount}
     - if ("${settings.scheduleType}" == 2):
       - convert
     - else:
       - setGlobals:
           cron: ${settings.cronTime}
+    - if ("${settings.isAlwaysUmount}" == "true"):
+      - removePermanentMount
+    - else:
+      - removePermanentMount
+      - addPermanentMount
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
+        isAlwaysUmount: ${globals.isAlwaysUmount}
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
+        
+  addPermanentMount:
+    - getStorageCtid
+    - script: |
+        return jelastic.env.file.AddMountPointById("${env.envName}", session, "${targetNodes.master.id}", "/opt/backup", "nfs4", null, "/data/", "${response.storageCtid}", "DBBackupRestore", false);
+
+  removePermanentMount:
+    - getStorageCtid
+    - script: |
+        var allMounts = jelastic.env.file.GetMountPoints("${env.envName}", session, "${targetNodes.master.id}").array;
+        for (var i = 0, n = allMounts.length; i < n; i++) {
+            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+              resp = jelastic.env.file.RemoveMountPointById("${env.envName}", session, "${targetNodes.master.id}", "/opt/backup");
+              if (resp.result != 0) { return resp; }
+            }
+        }
+        allMounts = jelastic.env.file.GetMountPoints("${env.envName}", session).array;
+        for (var i = 0, n = allMounts.length; i < n; i++) {
+            if (allMounts[i].path == "/opt/backup" && allMounts[i].type == "INTERNAL") {
+              resp = jelastic.env.file.RemoveMountPointByGroup("${env.envName}", session, "sqldb", "/opt/backup");
+              if (resp.result != 0) { return resp; }
+            }
+        }
+        return { "result": 0 };
