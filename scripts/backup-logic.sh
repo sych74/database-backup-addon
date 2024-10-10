@@ -22,7 +22,7 @@ DUMP_BACKUP_DIR=/root/backup/dump
 BINLOGS_BACKUP_DIR=/root/backup/binlogs
 SQL_DUMP_NAME=db_backup.sql
 
-##rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
+rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
 
 
 if [ -z "$PITR" ]; then
@@ -176,11 +176,6 @@ function get_binlog_file_by_snapshot_id(){
     local binlog_file=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r --arg id "$snapshot_id" '.[] | select(.short_id == $id) | .tags[2]')
     echo $(date) ${ENV_NAME} "Getting the start binlog file name: ${binlog_file}" >> ${BACKUP_LOG_FILE}
     echo ${binlog_file}
-}
-
-function create_binlog_snapshot(){
-  echo
-
 }
 
 
