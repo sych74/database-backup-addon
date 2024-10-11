@@ -16,8 +16,6 @@ BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
 BACKUP_ADDON_COMMIT_ID=$(git ls-remote https://github.com/${BACKUP_ADDON_REPO}.git | grep "/${BACKUP_ADDON_BRANCH}$" | awk '{print $1}')
 
-
-
 DUMP_BACKUP_DIR=/root/backup/dump
 BINLOGS_BACKUP_DIR=/root/backup/binlogs
 SQL_DUMP_NAME=db_backup.sql
@@ -263,31 +261,27 @@ function backup_mysql(){
     create_snapshot;
 }
 
-
-function backup(){
-    echo $$ > /var/run/${ENV_NAME}_backup.pid
-    echo $(date) ${ENV_NAME} "Creating the ${BACKUP_TYPE} backup (using the backup addon with commit id ${BACKUP_ADDON_COMMIT_ID}) on storage node ${NODE_ID}" | tee -a ${BACKUP_LOG_FILE}
-    source /etc/jelastic/metainf.conf;
-    echo $(date) ${ENV_NAME} "Creating the DB dump" | tee -a ${BACKUP_LOG_FILE}
-    if [ "$COMPUTE_TYPE" == "redis" ]; then
-        backup_redis;
-
-    elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
-        backup_mongodb;
-        
-    elif [ "$COMPUTE_TYPE" == "postgres" ]; then
-        backup_postgres;
-
-    else
-        backup_mysql;
-
-    fi
-    rm -f /var/run/${ENV_NAME}_backup.pid
-}
-
+### Main section
+echo $$ > /var/run/${ENV_NAME}_backup.pid
+echo $(date) ${ENV_NAME} "Creating the ${BACKUP_TYPE} backup (using the backup addon with commit id ${BACKUP_ADDON_COMMIT_ID}) on storage node ${NODE_ID}" | tee -a ${BACKUP_LOG_FILE}
 check_backup_repo
 rotate_snapshots
-backup
+source /etc/jelastic/metainf.conf;
+echo $(date) ${ENV_NAME} "Creating the DB dump" | tee -a ${BACKUP_LOG_FILE}
+if [ "$COMPUTE_TYPE" == "redis" ]; then
+    backup_redis;
+
+elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
+    backup_mongodb;
+        
+elif [ "$COMPUTE_TYPE" == "postgres" ]; then
+    backup_postgres;
+
+else
+    backup_mysql;
+
+fi
 create_snapshot
 rotate_snapshots
 check_backup_repo
+rm -f /var/run/${ENV_NAME}_backup.pid
