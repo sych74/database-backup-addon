@@ -258,7 +258,6 @@ function backup_mysql(){
             create_binlog_snapshot "${dump_name}"
         fi
     fi
-    create_snapshot;
 }
 
 ### Main section
@@ -281,7 +280,7 @@ else
     backup_mysql;
 
 fi
-create_snapshot
-rotate_snapshots
-check_backup_repo
+create_snapshot;
+rotate_snapshots;
+check_backup_repo;
 rm -f /var/run/${ENV_NAME}_backup.pid
