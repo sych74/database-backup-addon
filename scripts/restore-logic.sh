@@ -141,6 +141,51 @@ function apply_binlogs_until_time(){
     done
 }
 
+function restore_mongodb(){
+    dump_snapshot_id=$(get_dump_snapshot_id_by_name "${BACKUP_NAME}")
+    restore_snapshot_by_id "${dump_snapshot_id}"
+    if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then 
+        export RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}'); 
+        export RS_SUFFIX="/?replicaSet=${RS_NAME}&readPreference=nearest"; 
+    else 
+        export RS_SUFFIX=""; 
+    fi
+    TLS_MODE=$(yq eval  '.net.tls.mode' /etc/mongod.conf)
+    if [ "$TLS_MODE" == "requireTLS" ]; then
+      SSL_TLS_OPTIONS="--ssl --sslPEMKeyFile=/var/lib/jelastic/keys/SSL-TLS/client/client.pem --sslCAFile=/var/lib/jelastic/keys/SSL-TLS/client/root.pem --tlsInsecure"
+    else
+      SSL_TLS_OPTIONS=""
+    fi
+    mongorestore ${SSL_TLS_OPTIONS} --uri="mongodb://${1}:${2}@localhost${RS_SUFFIX}" ${DUMP_BACKUP_DIR} 1>/dev/null
+
+}
+
+function restore_redis(){
+    REDIS_CONF_PATH=$(realpath /etc/redis.conf)
+    RDB_TO_RESTORE=$(ls -d /tmp/* |grep redis-dump.*);
+    
+    dump_snapshot_id=$(get_dump_snapshot_id_by_name "${BACKUP_NAME}")
+    restore_snapshot_by_id "${dump_snapshot_id}"
+
+    cd tmp; wget https://github.com/tair-opensource/RedisShake/releases/download/v3.1.11/redis-shake-linux-amd64.tar.gz;
+    tar -xf redis-shake-linux-amd64.tar.gz;
+    grep -q '^cluster-enabled yes' ${REDIS_CONF_PATH} && REDIS_TYPE="cluster" || REDIS_TYPE="standalone";
+    sed -ci -e "s/^type =.*/type = '${REDIS_TYPE}'/" restore.toml;
+    sed -ci -e "1s/^type =.*/type = 'restore'/" restore.toml;
+    export REDISCLI_AUTH=$(cat ${REDIS_CONF_PATH} |grep '^requirepass'|awk '{print $2}');
+    sed -ci -e "s/^password =.*/password = '${REDISCLI_AUTH}'/" restore.toml;
+    RESTORE_MASTER_ID=$(redis-cli cluster nodes|grep master|grep -v fail|head -n 1|awk '{print $2}'|awk -F : '{print $1}')
+    sed -ci -e "s/^address =.*/address = '${RESTORE_MASTER_ID}:6379'/" restore.toml;
+    for i in ${RDB_TO_RESTORE}
+    do
+        sed -ci -e "s|^rdb_file_path =.*|rdb_file_path = '${i}'|" restore.toml;
+        ./redis-shake restore.toml 1>/dev/null
+    done
+    rm -f ${RDB_TO_RESTORE}
+    rm -f redis-shake* sync.toml restore.toml 
+}
+
+
 function restore_mysql(){
     if [ "$PITR" == "true" ]; then
         dump_snapshot_id=$(get_snapshot_id_before_time "${PITR_TIME}")
