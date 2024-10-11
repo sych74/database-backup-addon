@@ -1,16 +1,16 @@
 #!/bin/bash
 
-BASE_URL=$2
-BACKUP_TYPE=$3
-NODE_ID=$4
-BACKUP_LOG_FILE=$5
-ENV_NAME=$6
-BACKUP_COUNT=$7
-DBUSER=$8
-DBPASSWD=$9
-USER_SESSION=${10}
-USER_EMAIL=${11}
-PITR=${12}
+BASE_URL=$1
+BACKUP_TYPE=$2
+NODE_ID=$3
+BACKUP_LOG_FILE=$4
+ENV_NAME=$5
+BACKUP_COUNT=$6
+DBUSER=$7
+DBPASSWD=$8
+USER_SESSION=$9
+USER_EMAIL=${10}
+PITR=${11}
 
 BACKUP_ADDON_REPO=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $1"/"$2}')
 BACKUP_ADDON_BRANCH=$(echo ${BASE_URL}|sed 's|https:\/\/raw.githubusercontent.com\/||'|awk -F / '{print $3}')
@@ -23,7 +23,7 @@ BINLOGS_BACKUP_DIR=/root/backup/binlogs
 SQL_DUMP_NAME=db_backup.sql
 
 rm -rf $DUMP_BACKUP_DIR && mkdir -p $DUMP_BACKUP_DIR
-
+rm -rf $BINLOGS_BACKUP_DIR && mkdir -p $BINLOGS_BACKUP_DIR
 
 if [ -z "$PITR" ]; then
     PITR="false"
@@ -147,7 +147,7 @@ function create_snapshot(){
         RDB_TO_BACKUP=$(ls -d /tmp/* |grep redis-dump.*);
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${RDB_TO_BACKUP} | tee -a ${BACKUP_LOG_FILE};
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
-        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}
+        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
     else
         if [ "$PITR" == "true" ]; then
             GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" --tag "PITR" --tag "$(get_binlog_file)" --tag "$(get_binlog_position)" ${DUMP_BACKUP_DIR} | tee -a ${BACKUP_LOG_FILE}
@@ -213,7 +213,7 @@ function backup_mongodb(){
     else
         SSL_TLS_OPTIONS=""
     fi
-        mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}"
+        mongodump ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}" --out="${DUMP_BACKUP_DIR}"
 }
 
 function backup_mysql_dump(){
@@ -285,29 +285,9 @@ function backup(){
     rm -f /var/run/${ENV_NAME}_backup.pid
 }
 
-
-case "$1" in
-    backup)
-        $1
-        ;;
-    pitr_backup_mysql)
-        $1
-        ;;
-    check_backup_repo)
-        $1
-        ;;
-    rotate_snapshots)
-        $1
-        ;;
-    create_snapshot)
-        $1
-        ;;
-    update_restic)
-        $1
-        ;;
-    *)
-        echo "Usage: $0 {backup|check_backup_repo|rotate_snapshots|create_snapshot|update_restic}"
-        exit 2
-esac
-
-exit $?
+check_backup_repo
+rotate_snapshots
+backup
+create_snapshot
+rotate_snapshots
+check_backup_repo
