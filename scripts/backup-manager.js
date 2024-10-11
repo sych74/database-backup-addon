@@ -141,14 +141,16 @@ function BackupManager(config) {
             [ me.addMountForBackup, config.isAlwaysUmount ],
             [ me.cmd, [
 		'[ -f /root/%(envName)_backup-logic.sh ] && rm -f /root/%(envName)_backup-logic.sh || true',
-                'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh'
+                'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh',
+		'[ -f /root/installUpdateRestic ] && rm -f /root/installUpdateRestic || true',
+                'wget -O /root/installUpdateRestic %(baseUrl)/scripts/installUpdateRestic'		
             ], {
 		nodeId : config.backupExecNode,
                 envName : config.envName,
 		baseUrl : config.baseUrl
 	    }],
             [me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh update_restic %(baseUrl)'
+                'bash /root/installUpdateRestic'
             ], backupCallParams ],
             [ me.cmd, [
                 'bash /root/%(envName)_backup-logic.sh %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
@@ -167,14 +169,16 @@ function BackupManager(config) {
             [ me.addMountForRestore, config.isAlwaysUmount ],
             [ me.cmd, [
 	        '[ -f /root/%(envName)_backup-logic.sh ] && rm -f /root/%(envName)_backup-logic.sh || true',
-                'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh'
+                'wget -O /root/%(envName)_backup-logic.sh %(baseUrl)/scripts/backup-logic.sh',
+		'[ -f /root/installUpdateRestic ] && rm -f /root/installUpdateRestic || true',
+                'wget -O /root/installUpdateRestic %(baseUrl)/scripts/installUpdateRestic'
             ], {
 		nodeId : config.backupExecNode,
                 envName : config.envName,
 		baseUrl : config.baseUrl
 	    }],
             [me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh update_restic %(baseUrl)'
+                'bash /root/installUpdateRestic'
             ], {
 		nodeId : config.backupExecNode,
                 envName : config.envName,
