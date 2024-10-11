@@ -185,7 +185,7 @@ function BackupManager(config) {
 		baseUrl : config.baseUrl
 	    }],
             [ me.cmd, [
-                'bash /root/%(envName)_restore-logic.sh %(dbuser) %(dbpass) %(restoreLogFile) %(isPitr)'
+                'bash /root/%(envName)_restore-logic.sh %(dbuser) %(dbpass) %(restoreLogFile) %(isPitr)',
 		'jem service restart',
 		'if [ -n "$REPLICA_PSWD" ] && [ -n "$REPLICA_USER" ] ; then wget %(baseUrl)/scripts/setupUser.sh -O /root/setupUser.sh &>> /var/log/run.log; bash /root/setupUser.sh ${REPLICA_USER} ${REPLICA_PSWD} %(userEmail) %(envName) %(userSession); fi',
 		'echo $(date) %(envName) snapshot $(cat /root/.backupid) restored successfully| tee -a %(restoreLogFile)'
