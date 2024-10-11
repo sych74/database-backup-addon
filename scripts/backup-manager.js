@@ -151,22 +151,7 @@ function BackupManager(config) {
                 'bash /root/%(envName)_backup-logic.sh update_restic %(baseUrl)'
             ], backupCallParams ],
             [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh check_backup_repo %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
-            ], backupCallParams ],
-            [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh rotate_snapshots %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
-            ], backupCallParams ],
-	    [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh backup %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
-            ], backupCallParams ],
-	    [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh create_snapshot %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
-            ], backupCallParams ],
-            [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh rotate_snapshots %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
-            ], backupCallParams ],
-            [ me.cmd, [
-                'bash /root/%(envName)_backup-logic.sh check_backup_repo %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
+                'bash /root/%(envName)_backup-logic.sh %(baseUrl) %(backupType) %(nodeId) %(backupLogFile) %(envName) %(backupCount) %(dbuser) %(dbpass) %(session) %(email) %(isPitr)'
             ], backupCallParams ],
         [ me.removeMounts, config.isAlwaysUmount ]
         ]);
