@@ -205,33 +205,22 @@ function restore_mysql(){
     fi
 }
 
-function restore(){
-    echo $$ > /var/run/${ENV_NAME}_restore.pid
-    source /etc/jelastic/metainf.conf;
-    echo $(date) ${ENV_NAME} "Restoring the DB dump" | tee -a ${RESTORE_LOG_FILE}
-    if [ "$COMPUTE_TYPE" == "redis" ]; then
-        restore_redis;
+### Main block
 
-    elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
-        restore_mongodb;
+echo $$ > /var/run/${ENV_NAME}_restore.pid
+source /etc/jelastic/metainf.conf;
+echo $(date) ${ENV_NAME} "Restoring the DB dump" | tee -a ${RESTORE_LOG_FILE}
+if [ "$COMPUTE_TYPE" == "redis" ]; then
+    restore_redis;
+
+elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
+    restore_mongodb;
         
-    elif [ "$COMPUTE_TYPE" == "postgres" ]; then
-        restore_postgres;
+elif [ "$COMPUTE_TYPE" == "postgres" ]; then
+    restore_postgres;
 
-    else
-        restore_mysql;
+else
+    restore_mysql;
 
-    fi
-    rm -f /var/run/${ENV_NAME}_restore.pid
-}
-
-case "$1" in
-    restore)
-        $1
-        ;;
-    *)
-        echo "Usage: $0 restore}"
-        exit 2
-esac
-
-exit $?
+fi
+rm -f /var/run/${ENV_NAME}_restore.pid
