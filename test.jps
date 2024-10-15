@@ -175,12 +175,14 @@ settings:
         type: string
         caption: Database User
         name: dbuser
+        default: root
         tooltip: In case you restore non-native database backup do not forget to provide its credentials instead of initial ones with help of add-on Configure action. It is relevant to <b>sqldb</b> databases and <b>MongoDB</b> only.
       - hideLabel: false
         hidden: false
         type: string
         inputType: password
         caption: Database Password
+        default: IBOkks15239
         name: dbpass
     onBeforeInit: scripts/configOnBeforeInit.js
         
@@ -538,10 +540,25 @@ actions:
     - deleteDBdump
     
   restore:
-    - cmd[${targetNodes.nodeGroup}]: |-
-        echo "${settings.backupedEnvName}" > /root/.backupedenv
-        echo "${settings.backupDir}" > /root/.backupid
+    - cmd[${targetNodes.nodeGroup}]: echo "${settings.backupedEnvName}" > /root/.backupedenv
       user: root
+    - if ("${settings.isPitr}" == "true"):
+      - script: |
+          var dateTimeInput = '${settings.restoreTime}';
+          var [date, time] = dateTimeInput.split('T');
+          var formattedDateTime = date + " " + time.slice(0, 5) + ":00";
+          return api.environment.file.Write({ 
+            envName: '${env.envName}',
+            session: session,
+            path: "/root/.backuptime",
+            nodeGroup: "${targetNodes.nodeGroupp}",
+            nodeid: "-1",
+            userName: "root",
+            body: formattedDateTime
+          });
+    - else:
+      - cmd[${targetNodes.nodeGroup}]: echo "${settings.backupDir}" > /root/.backupid;
+        user: root        
     - callScript: restore
     - deleteDBdump
     
