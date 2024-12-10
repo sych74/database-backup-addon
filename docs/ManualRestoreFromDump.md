@@ -11,21 +11,21 @@ Upload the dump file to the master node using:
   - a File Manager interface.
   - an SFTP.
 
-2. Restore the dump by running the following command:
-  mysql -u<username> -p<password> < /tmp/db_backup.sql
-  Replace <username> and <password> with your database credentials.
-
-Alternatively, use tools like phpMyAdmin for an interactive restoration.
-
-3. Stop Services on Non-Master Nodes
+2. Stop Services on Non-Master Nodes
 SSH into each Non-Master node using WebSSH or an SSH client.
 Run the following command to stop the MariaDB service:
 sudo jem service stop
 
-4. Delete the grastate.dat File on Non-Master nodes
+3. Delete the grastate.dat File on Non-Master nodes
 Access each non-master node via SSH or a File Manager and remove the Galera state file:
 /var/lib/mysql/grastate.dat
 This ensures the node will initiate a full state transfer (SST) upon service restart.
+
+4. Restore the dump on Master-Node by running the following command:
+  mysql -u<username> -p<password> < /tmp/db_backup.sql
+  Replace <username> and <password> with your database credentials.
+
+Alternatively, use tools like phpMyAdmin for an interactive restoration.
 
 5. Start Services on Non-Master Nodes
 On each non-master node, start the MariaDB service by running:
