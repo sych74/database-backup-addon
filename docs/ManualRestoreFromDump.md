@@ -6,7 +6,7 @@ This means changes to these tables are not automatically synchronized and may le
 For more details, refer to the https://mariadb.com/kb/en/mariadb-galera-cluster-known-limitations/ MariaDB Galera Cluster Known Limitations.
 
 ## Step-by-Step Instructions
-1. Load the Database Dump to /tmp/ dorectory on the Master Node
+1. Load the Database Dump to /tmp/ directory on the Master Node
 Upload the dump file to the master node using:
   - a File Manager interface.
   - an SFTP.
