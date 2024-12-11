@@ -1,42 +1,61 @@
-# Restoring a Galera Cluster from a Database Dump
+# Restore Galera Cluster from Database Dump
 
-  When working with a Galera Cluster, it’s important to consider certain limitations. Only InnoDB tables are replicated across nodes. 
-Tables using other storage engines, such as *mysql.** tables (which typically use the Aria/MyISAM engines) are not replicated. 
-This means changes to these tables are not automatically synchronized and may lead to inconsistencies. 
-For more details, refer to the https://mariadb.com/kb/en/mariadb-galera-cluster-known-limitations/ MariaDB Galera Cluster Known Limitations.
+When manually restoring a database dump for the Galera cluster, it is essential to consider the **[MariaDB Galera Cluster Known Limitations](https://mariadb.com/kb/en/mariadb-galera-cluster-known-limitations/)**.
 
-## Step-by-Step Instructions
-1. Load the Database Dump to /tmp/ directory on the Master Node
-Upload the dump file to the master node using:
-  - a File Manager interface.
-  - an SFTP.
-
-2. Restore the dump by running the following command:
-  mysql -u<username> -p<password> < /tmp/db_backup.sql
-  Replace <username> and <password> with your database credentials.
-
-Alternatively, use tools like phpMyAdmin for an interactive restoration.
-
-3. Stop Services on Non-Master Nodes
-SSH into each Non-Master node using WebSSH or an SSH client.
-Run the following command to stop the MariaDB service:
-sudo jem service stop
-
-4. Delete the grastate.dat File on Non-Master nodes
-Access each non-master node via SSH or a File Manager and remove the Galera state file:
-/var/lib/mysql/grastate.dat
-This ensures the node will initiate a full state transfer (SST) upon service restart.
-
-5. Start Services on Non-Master Nodes
-On each non-master node, start the MariaDB service by running:
-sudo jem service start
-The non-master nodes will initiate a full SST from the master node, synchronizing all data.
+> **Note:** No extra actions are required when working with the **Backup/Restore** add-on, all the relevant limitations are already taken into account. Instructions below are for the manual database dump restoration process only.
 
 ## Key Considerations
-Replication of InnoDB Only: Galera Cluster only replicates InnoDB tables. Tables using other storage engines, such as Aria or MyISAM (e.g., mysql.* tables), are not replicated. Ensure you manually synchronize such tables across nodes if required.
 
-Cluster Downtime: During this process, the cluster may experience downtime. Plan accordingly to minimize impact on applications relying on the database.
+- **Only *InnoDB* tables** are replicated across nodes, while tables that use other storage engines are not. The most common examples are the *mysql.\** tables which typically use the *Aria* or *MyISAM* engines. Ensure you manually synchronize such tables across nodes if required.
+- Be aware of the **cluster downtime** during the dump restoration process and plan accordingly to minimize impact on applications relying on the database.
+- Ensure that **State Snapshot Transfer (SST)** method is configured for your cluster to provide a full data copy to the new nodes  (e.g., *xtrabackup* or *rsync*).
 
-SST Method: Ensure the SST method configured for your cluster (e.g., xtrabackup or rsync) is functioning correctly to facilitate successful synchronization.
+## Manual Restoration Steps
 
-By following these steps, you can restore your Galera cluster from a database dump and ensure all nodes are synchronized while accounting for the non-replication of tables using storage engines other than InnoDB.
+Follow the steps below to restore your Galera cluster from a database dump and ensure all nodes are correctly synchronized:
+
+1\. Upload the database dump to the **/tmp/** directory to the master (first) node of the Galera cluster. For example, you can use:
+
+- [built-in file manager](https://www.virtuozzo.com/application-platform-docs/configuration-file-manager/)
+
+![file manager](images/manual-galera-restoration/01-file-manager.png)
+
+- [SFTP/SSH connection](https://www.virtuozzo.com/application-platform-docs/ssh-protocols/)
+
+![SFTP connection](images/manual-galera-restoration/02-sftp-connection.png)
+
+- [FTP add-on](https://www.virtuozzo.com/application-platform-docs/ftp-ftps-support/)
+
+![FTP add-on](images/manual-galera-restoration/03-ftp-addon.png)
+
+2\. Stop services on all non-master nodes. Connect to the required node [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/) and execute the following command to stop the MariaDB service:
+
+```
+sudo jem service stop
+```
+
+3\. Delete the ***/var/lib/mysql/grastate.dat*** Galera state file. It will initiate a full state transfer (SST) upon service restart.
+
+```
+rm /var/lib/mysql/grastate.dat
+```
+
+4\. Repeat *steps 2-3* for all non-master nodes.
+
+![Web SSH access](images/manual-galera-restoration/04-web-ssh-access.png)
+
+5\. Restore the dump on the first node by running the following command (provide the correct database credentials and dump file name):
+
+```
+mysql -u <username> -p <password> < /tmp/db_backup.sql
+```
+
+Alternatively, you can use tools like **phpMyAdmin** for an interactive restoration.
+
+6\. Start the MariaDB services on the non-master nodes:
+
+```
+sudo jem service start
+```
+
+A full SST will be initiated upon node rejoining the cluster, which will synchronizing all data including non-InnoDB tables.
