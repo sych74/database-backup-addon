@@ -1,14 +1,14 @@
 # Restore Galera Cluster from Database Dump
 
-When manually restoring a database dump for the Galera cluster, it is essential to consider the **[MariaDB Galera Cluster Known Limitations](https://mariadb.com/kb/en/mariadb-galera-cluster-known-limitations/)**.
+When manually restoring a database dump for the Galera cluster, it is essential to consider the **[MariaDB Galera Cluster - Known Limitations](https://mariadb.com/kb/en/mariadb-galera-cluster-known-limitations/)**.
 
-> **Note:** No extra actions are required when working with the **Backup/Restore** add-on, all the relevant limitations are already taken into account. Instructions below are for the manual database dump restoration process only.
+> **Note:** No extra actions are required when working with the **Backup/Restore** add-on, all the relevant limitations are already considered. The instructions below are for the manual database dump restoration process only.
 
 ## Key Considerations
 
 - **Only *InnoDB* tables** are replicated across nodes, while tables that use other storage engines are not. The most common examples are the *mysql.\** tables which typically use the *Aria* or *MyISAM* engines. Ensure you manually synchronize such tables across nodes if required.
-- Be aware of the **cluster downtime** during the dump restoration process and plan accordingly to minimize impact on applications relying on the database.
-- Ensure that **State Snapshot Transfer (SST)** method is configured for your cluster to provide a full data copy to the new nodes  (e.g., *xtrabackup* or *rsync*).
+- Be aware of the **cluster downtime** during the dump restoration process and plan accordingly to minimize the impact on applications relying on the database.
+- Ensure that the **State Snapshot Transfer (SST)** method is configured for your cluster to provide a full data copy to the new nodes  (e.g., *xtrabackup* or *rsync*).
 
 ## Manual Restoration Steps
 
@@ -18,15 +18,15 @@ Follow the steps below to restore your Galera cluster from a database dump and e
 
 - [built-in file manager](https://www.virtuozzo.com/application-platform-docs/configuration-file-manager/)
 
-![file manager](images/manual-galera-restoration/01-file-manager.png)
+![file manager](/images/manual-galera-restoration/01-file-manager.png)
 
 - [SFTP/SSH connection](https://www.virtuozzo.com/application-platform-docs/ssh-protocols/)
 
-![SFTP connection](images/manual-galera-restoration/02-sftp-connection.png)
+![SFTP connection](/images/manual-galera-restoration/02-sftp-connection.png)
 
 - [FTP add-on](https://www.virtuozzo.com/application-platform-docs/ftp-ftps-support/)
 
-![FTP add-on](images/manual-galera-restoration/03-ftp-addon.png)
+![FTP add-on](/images/manual-galera-restoration/03-ftp-addon.png)
 
 2\. Stop services on all non-master nodes. Connect to the required node [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/) and execute the following command to stop the MariaDB service:
 
@@ -42,7 +42,7 @@ rm /var/lib/mysql/grastate.dat
 
 4\. Repeat *steps 2-3* for all non-master nodes.
 
-![Web SSH access](images/manual-galera-restoration/04-web-ssh-access.png)
+![Web SSH access](/images/manual-galera-restoration/04-web-ssh-access.png)
 
 5\. Restore the dump on the first node by running the following command (provide the correct database credentials and dump file name):
 
@@ -50,7 +50,7 @@ rm /var/lib/mysql/grastate.dat
 mysql -u <username> -p <password> < /tmp/db_backup.sql
 ```
 
-Alternatively, you can use tools like **phpMyAdmin** for an interactive restoration.
+Alternatively, you can use tools like **phpMyAdmin** to perform an interactive restoration.
 
 6\. Start the MariaDB services on the non-master nodes:
 
@@ -58,4 +58,4 @@ Alternatively, you can use tools like **phpMyAdmin** for an interactive restorat
 sudo jem service start
 ```
 
-A full SST will be initiated upon node rejoining the cluster, which will synchronizing all data including non-InnoDB tables.
+A full SST will be initiated upon the node rejoining the cluster, synchronizing all data including non-InnoDB tables.
