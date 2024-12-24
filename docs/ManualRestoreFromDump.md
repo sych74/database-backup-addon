@@ -28,19 +28,18 @@ Follow the steps below to restore your Galera cluster from a database dump and e
 
 ![FTP add-on](/images/manual-galera-restoration/03-ftp-addon.png)
 
-2\. Stop services on all non-master nodes. Connect to the required node [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/) and execute the following command to stop the MariaDB service:
+2\. Perform the following operations on **all non-master nodes**:
+
+- Connect to the required node [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/).
+- Stop the MariaDB service.
+- Delete the ***/var/lib/mysql/grastate.dat*** Galera state file. It will initiate a full state transfer (SST) upon service restart.
 
 ```
 sudo jem service stop
-```
-
-3\. Delete the ***/var/lib/mysql/grastate.dat*** Galera state file. It will initiate a full state transfer (SST) upon service restart.
-
-```
 rm /var/lib/mysql/grastate.dat
 ```
 
-4\. Repeat *steps 2-3* for all non-master nodes.
+![alt text](04-web-ssh-access.png)
 
 ![Web SSH access](/images/manual-galera-restoration/04-web-ssh-access.png)
 
