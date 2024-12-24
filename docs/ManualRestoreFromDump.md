@@ -30,7 +30,7 @@ Follow the steps below to restore your Galera cluster from a database dump and e
 
 2\. Perform the following operations on **all non-master nodes**:
 
-- Connect to the required node [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/).
+- Connect [via SSH](https://www.virtuozzo.com/application-platform-docs/ssh-access-overview/).
 - Stop the MariaDB service.
 - Delete the ***/var/lib/mysql/grastate.dat*** Galera state file. It will initiate a full state transfer (SST) upon service restart.
 
@@ -39,11 +39,9 @@ sudo jem service stop
 rm /var/lib/mysql/grastate.dat
 ```
 
-![alt text](04-web-ssh-access.png)
-
 ![Web SSH access](/images/manual-galera-restoration/04-web-ssh-access.png)
 
-5\. Restore the dump on the first node by running the following command (provide the correct database credentials and dump file name):
+3\. Restore the dump on the first node by running the following command (provide the correct database credentials and dump file name):
 
 ```
 mysql -u <username> -p <password> < /tmp/db_backup.sql
@@ -51,7 +49,7 @@ mysql -u <username> -p <password> < /tmp/db_backup.sql
 
 Alternatively, you can use tools like **phpMyAdmin** to perform an interactive restoration.
 
-6\. Start the MariaDB services on the non-master nodes:
+4\. Start the MariaDB services on the non-master nodes:
 
 ```
 sudo jem service start
