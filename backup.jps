@@ -327,10 +327,11 @@ actions:
 
   configureDumpTool:
     if(/mariadb/.test("${targetNodes.nodeType}") || /mysql/.test("${targetNodes.nodeType}") || /percona/.test("${targetNodes.nodeType}")):
-      echo "[mysqldump]" > /etc/mysql/conf.d/dump.cnf
-      echo "max-allowed-packet = 32M" >> /etc/mysql/conf.d/dump.cnf
-      echo "[mariadb-dump]" >> /etc/mysql/conf.d/dump.cnf
-      echo "max-allowed-packet = 32M" >> /etc/mysql/conf.d/dump.cnf
+      cmd[${targetNodes.nodeGroup}]: |-
+        echo "[mysqldump]" > /etc/mysql/conf.d/dump.cnf
+        echo "max-allowed-packet = 32M" >> /etc/mysql/conf.d/dump.cnf
+        echo "[mariadb-dump]" >> /etc/mysql/conf.d/dump.cnf
+        echo "max-allowed-packet = 32M" >> /etc/mysql/conf.d/dump.cnf
         
   getStorageCtid:
     - script: scripts/getStorageCtid.js
