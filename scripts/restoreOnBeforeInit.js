@@ -87,14 +87,16 @@ if (storage_unavailable_markup === "") {
                     "type": "list",
                     "name": "backupedEnvName",
                     "required": true,
-                    "values": envs
+                    "values": envs,
+                    "tooltip": "Select the environment to restore from"
                 }, {
                     "caption": "Time for restore",
                     "type": "string",
                     "name": "restoreTime",
                     "inputType": "datetime-local",
                     "cls": "x-form-text",
-                    "required": true
+                    "required": true,
+                    "tooltip": "Select specific date and time for point-in-time recovery"
                 }
               ],
               "false": [

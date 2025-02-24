@@ -147,7 +147,7 @@ settings:
       - type: toggle
         name: isPitr
         caption: PITR
-        tooltip: "Point in time recovery" 
+        tooltip: "Enable Point-In-Time Recovery." 
         value: false
         hidden: false
         showIf:
@@ -156,7 +156,7 @@ settings:
             cls: warning
             height: 30,
             hideLabel: true,
-            markup: "Database does not configured for PITR support. Please push apply for automatic configuring or close and manually configure acording to instruction and reinstall addon"          
+            markup: "Database is not configured for PITR. Click Apply to configure automatically, or close and configure manually following documentation."
       - type: displayfield
         name: displayPitr
         markup: ""
