@@ -185,6 +185,125 @@ function restore_redis(){
     rm -f redis-shake* sync.toml restore.toml 
 }
 
+# Function to get WAL location by snapshot ID
+function get_wal_location_by_snapshot_id() {
+    local snapshot_id="$1"
+    local wal_location=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r --arg id "$snapshot_id" '.[] | select(.short_id == $id) | .tags[2]')
+    echo "$(date) ${ENV_NAME} Getting the WAL location: ${wal_location}" >> ${RESTORE_LOG_FILE}
+    echo "$wal_location"
+}
+
+# Function to get WAL snapshot ID by name
+function get_wal_snapshot_id_by_name() {
+    local backup_name="$1"
+    local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --tag "PGWAL" --json | jq -r --arg backup_name "$backup_name" '.[] | select(.tags[0] | contains($backup_name)) | .short_id')
+
+    if [[ $? -ne 0 || -z "$snapshot_id" ]]; then
+        echo "$(date) ${ENV_NAME} Error: Failed to get WAL snapshot ID" | tee -a ${RESTORE_LOG_FILE}
+        exit 1
+    fi
+
+    echo "$(date) ${ENV_NAME} Getting WAL snapshot ID: $snapshot_id" >> ${RESTORE_LOG_FILE}
+    echo "$snapshot_id"
+}
+
+# Function to restore PostgreSQL WAL files
+function restore_postgres_wal() {
+    local target_time="$1"
+    local wal_dir="/var/lib/postgresql/wal_archive"
+    
+    echo "$(date) ${ENV_NAME} Restoring WAL files until $target_time..." | tee -a ${RESTORE_LOG_FILE}
+    
+    # Ensure WAL archive directory exists
+    if [ ! -d "$wal_dir" ]; then
+        sudo mkdir -p "$wal_dir"
+        sudo chown postgres:postgres "$wal_dir"
+    fi
+
+    # Copy WAL files to archive directory
+    sudo cp -r ${BINLOGS_BACKUP_DIR}/* "$wal_dir/"
+    sudo chown -R postgres:postgres "$wal_dir"
+    
+    # Create recovery configuration
+    sudo -u postgres bash -c "cat > /var/lib/postgresql/data/recovery.signal << EOF
+# Recovery configuration
+restore_command = 'cp /var/lib/postgresql/wal_archive/%f %p'
+recovery_target_time = '$target_time'
+EOF"
+
+    echo "$(date) ${ENV_NAME} WAL files restored successfully" >> ${RESTORE_LOG_FILE}
+}
+
+# Enhanced PostgreSQL restore function with PITR support
+function restore_postgres() {
+    if [ "$PITR" == "true" ]; then
+        # Get snapshot before specified time
+        dump_snapshot_id=$(get_snapshot_id_before_time "${PITR_TIME}")
+        dump_snapshot_name=$(get_snapshot_name_by_id "${dump_snapshot_id}")
+        
+        # Get associated WAL snapshot
+        wal_snapshot_id=$(get_wal_snapshot_id_by_name "${dump_snapshot_name}")
+        
+        # Restore main backup
+        restore_snapshot_by_id "${dump_snapshot_id}"
+        
+        # Process dump file
+        local ORIG_BACKUP="${DUMP_BACKUP_DIR}/db_backup.sql"
+        local TEMP_BACKUP="/tmp/db_backup.sql"
+        
+        [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
+        cp "$ORIG_BACKUP" "$TEMP_BACKUP"
+        
+        # Remove problematic role commands
+        sed -i -e '/^CREATE ROLE webadmin/d' \
+               -e '/^CREATE ROLE postgres/d' \
+               -e '/^DROP ROLE IF EXISTS postgres/d' \
+               -e '/^DROP ROLE IF EXISTS webadmin/d' \
+               -e '/^ALTER ROLE postgres WITH SUPERUSER/d' \
+               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' "$TEMP_BACKUP"
+        
+        # Restore the database
+        PGPASSWORD="${DBPASSWD}" psql --no-readline -q -U "${DBUSER}" -d postgres < "$TEMP_BACKUP"
+        
+        # Restore WAL files
+        restore_snapshot_by_id "${wal_snapshot_id}"
+        restore_postgres_wal "${PITR_TIME}"
+        
+        # Restart PostgreSQL to apply recovery
+        jem service restart postgresql
+        
+        [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
+        
+    else
+        # Regular restore without PITR
+        local ORIG_BACKUP="${DUMP_BACKUP_DIR}/db_backup.sql"
+        local TEMP_BACKUP="/tmp/db_backup.sql"
+
+        dump_snapshot_id=$(get_dump_snapshot_id_by_name "${BACKUP_NAME}")
+        restore_snapshot_by_id "${dump_snapshot_id}"
+
+        [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
+        cp "$ORIG_BACKUP" "$TEMP_BACKUP"
+
+        # Remove problematic role commands
+        sed -i -e '/^CREATE ROLE webadmin/d' \
+               -e '/^CREATE ROLE postgres/d' \
+               -e '/^DROP ROLE IF EXISTS postgres/d' \
+               -e '/^DROP ROLE IF EXISTS webadmin/d' \
+               -e '/^ALTER ROLE postgres WITH SUPERUSER/d' \
+               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' "$TEMP_BACKUP"
+
+        PGPASSWORD="${DBPASSWD}" psql --no-readline -q -U "${DBUSER}" -d postgres < "$TEMP_BACKUP" > /dev/null
+        if [[ $? -ne 0 ]]; then
+            echo "$(date) ${ENV_NAME} Error: Failed to restore PostgreSQL dump" | tee -a ${RESTORE_LOG_FILE}
+            [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
+            exit 1
+        fi
+
+        echo "$(date) ${ENV_NAME} PostgreSQL dump restored successfully" | tee -a ${RESTORE_LOG_FILE}
+        [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
+    fi
+}
 
 function restore_mysql(){
     if [ "$PITR" == "true" ]; then

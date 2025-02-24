@@ -4,14 +4,19 @@ ACTION=$1
 DBUSER=$2
 DBPASSWD=$3
 
+# Configuration file paths
 PITR_CONF_MYSQL='/etc/mysql/conf.d/pitr.cnf'
 PITR_CONF_PG='/etc/postgresql/12/main/postgresql.conf'
 ARCHIVE_DIR_PG='/var/lib/postgresql/wal_archive'
 BACKUP_DIR_PG='/var/lib/postgresql/backups'
 
+# Source external configuration
 source /etc/jelastic/metainf.conf
 
+# Format compute type version
 COMPUTE_TYPE_FULL_VERSION_FORMATTED=$(echo "$COMPUTE_TYPE_FULL_VERSION" | sed 's/\.//')
+
+# Determine binlog expire settings based on compute type
 if [[ ("$COMPUTE_TYPE" == "mysql" || "$COMPUTE_TYPE" == "percona") && "$COMPUTE_TYPE_FULL_VERSION_FORMATTED" -ge "81" ]]; then
   BINLOG_EXPIRE_SETTING="binlog_expire_logs_seconds"
   EXPIRY_SETTING="604800"
@@ -23,12 +28,14 @@ else
   EXPIRY_SETTING=""
 fi
 
+# PostgreSQL WAL archive settings
 WAL_ARCHIVE_SETTING="archive_mode"
 WAL_ARCHIVE_COMMAND="archive_command"
 WAL_TIMEOUT_SETTING="archive_timeout"
 WAL_TIMEOUT_VALUE="60"
 WAL_ARCHIVE_ON="on"
 
+# Function to check PITR configuration for MySQL
 check_pitr_mysql() {
   LOG_BIN=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE 'log_bin';" | grep "ON")
   EXPIRE_LOGS=$(mysql -u"$DBUSER" -p"$DBPASSWD" -se "SHOW VARIABLES LIKE '$BINLOG_EXPIRE_SETTING';" | awk '{ print $2 }')
@@ -40,6 +47,7 @@ check_pitr_mysql() {
   fi
 }
 
+# Function to set up PITR configuration for MySQL
 setup_pitr_mysql() {
   check_pitr_mysql | grep -q '"result":0'
   if [[ $? -eq 0 ]]; then
@@ -55,6 +63,7 @@ $BINLOG_EXPIRE_SETTING=$EXPIRY_SETTING
   jem service restart;
 }
 
+# Function to check PITR configuration for PostgreSQL
 check_pitr_pg() {
   ARCHIVE_MODE=$(sudo -u postgres psql -U "$DBUSER" -c "SHOW $WAL_ARCHIVE_SETTING;" | grep "on")
   ARCHIVE_COMMAND=$(sudo -u postgres psql -U "$DBUSER" -c "SHOW $WAL_ARCHIVE_COMMAND;" | grep "$ARCHIVE_DIR_PG")
@@ -67,6 +76,7 @@ check_pitr_pg() {
   fi
 }
 
+# Function to set up PITR configuration for PostgreSQL
 setup_pitr_pg() {
   check_pitr_pg | grep -q '"result":0'
   if [[ $? -eq 0 ]]; then
@@ -88,10 +98,10 @@ archive_timeout = $WAL_TIMEOUT_VALUE
   fi
 
   jem service restart;
-
   echo '{"result":0}';
 }
 
+# Main script logic
 case $ACTION in
   checkPitr)
     if [[ "$COMPUTE_TYPE" == "mysql" || "$COMPUTE_TYPE" == "percona" || "$COMPUTE_TYPE" == "mariadb" ]]; then
@@ -112,6 +122,6 @@ case $ACTION in
     fi
     ;;
   *)
-    echo "checkPitr or setupPitr."
+    echo "Usage: $0 {checkPitr|setupPitr} DBUSER DBPASSWD"
     ;;
 esac
