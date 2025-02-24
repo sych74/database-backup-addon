@@ -26,7 +26,7 @@ if (resp.result == 11) {
 
 var checkSchema = api.env.control.ExecCmdById("${env.name}", session, ${targetNodes.master.id}, toJSON([{"command": checkSchemaCommand, "params": ""}]), false, "root");
 if (checkSchema.result != 0) return checkSchema;
-      
+
 function getStorageNodeid(){
     var storageEnv = '${settings.storageName}'
     var storageEnvShortName = storageEnv.split(".")[0]
@@ -72,7 +72,61 @@ function prepareBackups(backups) {
 }
 
 if (storage_unavailable_markup === "") {
-    settings.fields.push({
+    if ('${settings.isPitr}' == 'true') {
+        settings.fields.push({
+            "type": "toggle",
+            "name": "isPitr",
+            "caption": "PITR",
+            "tooltip": "Point in time recovery",
+            "value": true,
+            "hidden": false,
+            "showIf": {
+              "true": [
+               {
+                    "caption": "Restore from",
+                    "type": "list",
+                    "name": "backupedEnvName",
+                    "required": true,
+                    "values": envs
+                }, {
+                    "caption": "Time for restore",
+                    "type": "string",
+                    "name": "restoreTime",
+                    "inputType": "datetime-local",
+                    "cls": "x-form-text",
+                    "required": true
+                }
+              ],
+              "false": [
+               {
+                    "caption": "Restore from",
+                    "type": "list",
+                    "name": "backupedEnvName",
+                    "required": true,
+                    "values": envs
+                }, {
+                    "caption": "Backup",
+                    "type": "list",
+                    "name": "backupDir",
+                    "required": true,
+                    "tooltip": "Select the time stamp for which you want to restore the DB dump",
+                    "dependsOn": {
+                        "backupedEnvName" : backups
+                    }
+                }
+              ]
+            }
+        });
+        if (checkSchema.responses[0].out == "true") {
+            settings.fields.push(
+                {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": mysql_cluster_markup}
+            );
+            settings.fields.push(
+                {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": recovery_addon_markup}
+            );
+        }
+    } else {
+        settings.fields.push({
             "caption": "Restore from",
             "type": "list",
             "name": "backupedEnvName",
@@ -83,19 +137,20 @@ if (storage_unavailable_markup === "") {
             "type": "list",
             "name": "backupDir",
             "required": true,
-	    "tooltip": "Select the time stamp for which you want to restore the DB dump",
+            "tooltip": "Select the time stamp for which you want to restore the DB dump",
             "dependsOn": {
                 "backupedEnvName" : backups
             }
         });
-    if (checkSchema.responses[0].out == "true") {
-        settings.fields.push(
-            {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": mysql_cluster_markup}
-        );
-	settings.fields.push(
-            {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": recovery_addon_markup}
-        );
-    }	
+        if (checkSchema.responses[0].out == "true") {
+            settings.fields.push(
+                {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": mysql_cluster_markup}
+            );
+            settings.fields.push(
+                {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": recovery_addon_markup}
+            );
+        }
+    }
 } else {
     settings.fields.push(
         {"type": "displayfield", "cls": "warning", "height": 30, "hideLabel": true, "markup": storage_unavailable_markup}
