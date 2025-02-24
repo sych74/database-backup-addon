@@ -156,8 +156,7 @@ settings:
             cls: warning
             height: 30,
             hideLabel: true,
-            markup: "Database doesnt configured for PITR support. Please push apply for automatic configuring or close and manually configure acording to instruction and reinstall addon"          
-          
+            markup: "Database does not configured for PITR support. Please push apply for automatic configuring or close and manually configure acording to instruction and reinstall addon"          
       - type: displayfield
         name: displayPitr
         markup: ""
