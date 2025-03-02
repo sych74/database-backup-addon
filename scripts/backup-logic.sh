@@ -360,7 +360,7 @@ function backup_mysql() {
     if [ $exit_code -ne 0 ]; then
         echo "Error: MySQL dump failed" | tee -a "$BACKUP_LOG_FILE"
         return $exit_code
-    }
+    fi
 
     if [ "$PITR" == "true" ]; then
         local latest_pitr_snapshot_id
