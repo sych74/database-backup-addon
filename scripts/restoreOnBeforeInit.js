@@ -16,7 +16,8 @@ if (resp.result == 11) {
     var updateResticOnStorageCommand = "wget --tries=10 -O /tmp/installUpdateRestic " + baseUrl + "/scripts/installUpdateRestic && mv -f /tmp/installUpdateRestic /usr/sbin/installUpdateRestic && chmod +x /usr/sbin/installUpdateRestic && /usr/sbin/installUpdateRestic";
     var respUpdate = api.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": updateResticOnStorageCommand, "params": ""}]), false, "root");
     if (respUpdate.result != 0) return respUpdate;
-    var backups = jelastic.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": "/root/getBackupsAllEnvs.sh", "params": ""}]), false, "root").responses[0].out;
+    var getBackupsAllEnvs = "wget --tries=10 -O /root/getBackupsAllEnvs.sh " + baseUrl + "/scripts/getBackupsAllEnvs.sh && chmod +x /root/getBackupsAllEnvs.sh && /root/getBackupsAllEnvs.sh";
+    var backups = jelastic.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": getBackupsAllEnvs, "params": ""}]), false, "root").responses[0].out;
     var backupList = toNative(new JSONObject(String(backups)));
     var envs = prepareEnvs(backupList.envs);
     var backups = prepareBackups(backupList.backups);
