@@ -2,18 +2,20 @@
 
 restic self-update &>/dev/null || true
 
-ENV_LIST=$(ls /data)
+ENV_LIST=$(ls -Qm /data)
 
-OUTPUT_JSON="{\"result\": 0, \"envs\": ["
+OUTPUT_JSON="{\"result\": 0, \"envs\": [${ENV_LIST}], \"backups\": {"
 
 if [ -n "$ENV_LIST" ]; then
-    for i in $ENV_LIST; do
-        DIRECTORY_LIST=$(RESTIC_PASSWORD="$i" restic -r /data/$i snapshots --json)
-        [ -z "$DIRECTORY_LIST" ] || OUTPUT_JSON="${OUTPUT_JSON}{\"${i}\": ${DIRECTORY_LIST}},"
+
+    for i in $(ls /data)
+    do
+        DIRECTORY_LIST=$(RESTIC_PASSWORD="$i" restic -r /data/$i snapshots|awk '{print $5}'|grep -v 'Paths'|grep '[0-9.*]'|awk '{print "\""$1"\""}'|tr '\n' ',')
+        [ -z "${DIRECTORY_LIST}" ] || DIRECTORY_LIST=${DIRECTORY_LIST::-1}
+        OUTPUT_JSON="${OUTPUT_JSON}\"${i}\":[${DIRECTORY_LIST}],"
     done
-    OUTPUT_JSON="${OUTPUT_JSON%,}"
+
+    OUTPUT_JSON=${OUTPUT_JSON::-1}
 fi
 
-OUTPUT_JSON="${OUTPUT_JSON}]}"
-
-echo $OUTPUT_JSON
+echo $OUTPUT_JSON}}
