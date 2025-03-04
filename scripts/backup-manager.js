@@ -193,7 +193,7 @@ function BackupManager(config) {
                 nodeId : config.backupExecNode,
                 envName : config.envName,
 		isAlwaysUmount : config.isAlwaysUmount,
-		isPirt : config.isPirt,
+		isPitr : config.isPitr,
 		baseUrl : config.baseUrl,
 		dbuser: config.dbuser,
 		dbpass: config.dbpass,
