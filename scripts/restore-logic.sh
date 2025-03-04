@@ -38,6 +38,12 @@ else
     fi
 fi
 
+/**
+ * Finds snapshot ID before specified timestamp
+ * @param {string} target_datetime - Target restoration time
+ * @return {string} Snapshot ID or exits with error
+ * Searches through PITR snapshots chronologically
+ */
 function get_snapshot_id_before_time() {
     local target_datetime="$1"
 
@@ -62,6 +68,12 @@ function get_snapshot_id_before_time() {
     echo "$result_snapshot_id";
 }
 
+/**
+ * Retrieves snapshot ID for given backup name
+ * @param {string} backup_name - Name of the backup to find
+ * @return {string} Snapshot ID or exits with error
+ * Filters out BINLOGS tagged snapshots
+ */
 function get_dump_snapshot_id_by_name(){
     local backup_name="$1"
     local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r '.[] | select(.tags[0] | contains("'$backup_name'")) | select((.tags[1] != null and (.tags[1] | contains("BINLOGS")) | not) // true) | .short_id')
@@ -73,6 +85,12 @@ function get_dump_snapshot_id_by_name(){
     echo $snapshot_id
 }
 
+/**
+ * Retrieves binlog snapshot ID for backup name
+ * @param {string} backup_name - Name of the backup
+ * @return {string} Binlog snapshot ID or exits with error
+ * Specifically searches for BINLOGS tagged snapshots
+ */
 function get_binlog_snapshot_id_by_name(){
     local backup_name="$1"
     local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --tag "BINLOGS" --json | jq -r --arg backup_name "$backup_name" '.[] | select(.tags[0] | contains($backup_name)) | .short_id')
