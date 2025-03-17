@@ -109,7 +109,12 @@ function create_snapshot(){
         echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}	    
     else
-        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/db_backup.sql | tee -a ${BACKUP_LOG_FILE}
+        if [ -f "/root/db_backup.sql.gz" ]; then
+    	   DUMP_NAME="db_backup.sql.gz"
+	    else
+           DUMP_NAME="db_backup.sql"
+        fi
+        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/${DUMP_NAME} | tee -a ${BACKUP_LOG_FILE}
     fi
 }
 
