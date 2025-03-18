@@ -14,7 +14,7 @@ BACKUP_DIR_PG='/var/lib/postgresql/backups'
 source /etc/jelastic/metainf.conf
 
 # Format compute type version
-COMPUTE_TYPE_FULL_VERSION_FORMATTED=$(echo "$COMPUTE_TYPE_FULL_VERSION" | sed 's/\.//')
+COMPUTE_TYPE_FULL_VERSION_FORMATTED=$(echo "$COMPUTE_TYPE_FULL_VERSION" | sed -E 's/^([0-9]+)\.([0-9]+)\..*$/\1.\2/' | sed 's/\.//')
 
 # Determine binlog expire settings based on compute type
 if [[ ("$COMPUTE_TYPE" == "mysql" || "$COMPUTE_TYPE" == "percona") && "$COMPUTE_TYPE_FULL_VERSION_FORMATTED" -ge "81" ]]; then
