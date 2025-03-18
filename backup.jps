@@ -343,7 +343,7 @@ actions:
             envName: '${env.envName}',
             session: session,
             path: "/root/.backuptime",
-            nodeGroup: "${targetNodes.nodeGroupp}",
+            nodeGroup: "${targetNodes.nodeGroup}",
             nodeid: "-1",
             userName: "root",
             body: formattedDateTime
