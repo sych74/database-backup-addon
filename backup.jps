@@ -340,7 +340,7 @@ actions:
           var [date, time] = dateTimeInput.split('T');
           var formattedDateTime = date + " " + time.slice(0, 5) + ":00";
           return {result: 0, formattedDateTime: formattedDateTime};
-      - cmd[sqldb]: echo ${response.formattedDateTime} > /root/.backuptime;
+      - cmd[${targetNodes.nodeGroup}]: echo "${response.formattedDateTime}" > /root/.backuptime;
         user: root
     - else:
       - cmd[${targetNodes.nodeGroup}]: echo "${settings.backupDir}" > /root/.backupid;
