@@ -2,20 +2,25 @@
 
 restic self-update &>/dev/null || true
 
-ENV_LIST=$(ls -Qm /data)
+OUTPUT_JSON="{\"result\": 0, \"envs\": {"
 
-OUTPUT_JSON="{\"result\": 0, \"envs\": [${ENV_LIST}], \"backups\": {"
+for i in $(ls /data); do
+    SNAPSHOTS_JSON=$(RESTIC_PASSWORD="$i" restic -r /data/$i snapshots --json)
+    DIRECTORY_LIST=$(echo "$SNAPSHOTS_JSON" | jq -r '[.[] | .tags[0] | split(" ")[0]] | map("\"" + . + "\"") | join(",")')
 
-if [ -n "$ENV_LIST" ]; then
+    SERVER_VERSION=$(echo "$SNAPSHOTS_JSON" | jq -r '[.[] | .tags[0] | capture("\\((?<server_version>[^)]+)").server_version] | unique | .[0]')
 
-    for i in $(ls /data)
-    do
-        DIRECTORY_LIST=$(RESTIC_PASSWORD="$i" restic -r /data/$i snapshots|awk '{print $5}'|grep -v 'Paths'|grep '[0-9.*]'|awk '{print "\""$1"\""}'|tr '\n' ',')
-        [ -z "${DIRECTORY_LIST}" ] || DIRECTORY_LIST=${DIRECTORY_LIST::-1}
-        OUTPUT_JSON="${OUTPUT_JSON}\"${i}\":[${DIRECTORY_LIST}],"
-    done
+    SERVER=$(echo "$SERVER_VERSION" | cut -d'-' -f1)
+    VERSION=$(echo "$SERVER_VERSION" | cut -d'-' -f2-)
 
-    OUTPUT_JSON=${OUTPUT_JSON::-1}
-fi
+    if [ -n "$DIRECTORY_LIST" ]; then
+        OUTPUT_JSON="${OUTPUT_JSON}\"${i}\": { \"server\": \"${SERVER}\", \"version\": \"${VERSION}\", \"backups\": [${DIRECTORY_LIST}] },"
+    else
+        OUTPUT_JSON="${OUTPUT_JSON}\"${i}\": { \"server\": \"${SERVER}\", \"version\": \"${VERSION}\", \"backups\": [] },"
+    fi
+done
 
-echo $OUTPUT_JSON}}
+OUTPUT_JSON=${OUTPUT_JSON::-1}
+OUTPUT_JSON="${OUTPUT_JSON}}}"
+
+echo "$OUTPUT_JSON"

@@ -4,8 +4,15 @@ var storageInfo = getStorageNodeid();
 var storageEnvDomain = storageInfo.storageEnvShortName;
 var storageEnvMasterId = storageInfo.storageNodeId;
 var checkSchemaCommand = "if grep -q '^SCHEME=' /.jelenv; then echo true; else echo false; fi";
+var computeTypeCommand = "grep 'COMPUTE_TYPE=' /etc/jelastic/metainf.conf | cut -d'=' -f2";
 var mysql_cluster_markup = "Be careful when restoring the dump from another DB environment (or environment with another replication schema) to the replicated MySQL/MariaDB/Percona solution.";
 var recovery_addon_markup = "Please use Database Corruption Diagnostic add-on for check after restore, and Database Recovery Add-on for fix if it is needed.";
+
+var checkSchema = api.env.control.ExecCmdById("${env.name}", session, ${targetNodes.master.id}, toJSON([{"command": checkSchemaCommand, "params": ""}]), false, "root");
+if (checkSchema.result != 0) return checkSchema;
+var computeTypeResp = api.env.control.ExecCmdById("${env.name}", session, ${targetNodes.master.id}, toJSON([{"command": computeTypeCommand, "params": ""}]), false, "root");
+if (computeTypeResp.result != 0) return computeTypeResp;
+var computeType = computeTypeResp.responses[0].out.trim();
 
 resp = jelastic.env.control.GetEnvInfo(storageEnvDomain, session);
 if (resp.result != 0 && resp.result != 11) return resp;
@@ -19,14 +26,26 @@ if (resp.result == 11) {
     var getBackupsAllEnvs = "wget --tries=10 -O /root/getBackupsAllEnvs.sh " + baseUrl + "/scripts/getBackupsAllEnvs.sh && chmod +x /root/getBackupsAllEnvs.sh && /root/getBackupsAllEnvs.sh";
     var backups = jelastic.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": getBackupsAllEnvs, "params": ""}]), false, "root").responses[0].out;
     var backupList = toNative(new JSONObject(String(backups)));
-    var envs = prepareEnvs(backupList.envs);
-    var backups = prepareBackups(backupList.backups);
+    
+    var filteredEnvs = [];
+    var filteredBackups = {};
+
+    for (var env in backupList.envs) {
+        if (backupList.envs.hasOwnProperty(env)) {
+            var backupInfo = backupList.envs[env];
+
+            if (backupInfo.server == computeType) {
+                filteredEnvs.push({ caption: env, value: env });
+
+                filteredBackups[env] = backupInfo.backups.map(function(backup) {
+                    return { caption: backup, value: backup };
+                });
+            }
+        }
+    }
 } else {
     storage_unavailable_markup = "Storage environment " + storageEnvDomain + " is unavailable (stopped/sleeping).";
 }
-
-var checkSchema = api.env.control.ExecCmdById("${env.name}", session, ${targetNodes.master.id}, toJSON([{"command": checkSchemaCommand, "params": ""}]), false, "root");
-if (checkSchema.result != 0) return checkSchema;
 
 function getStorageNodeid(){
     var storageEnv = '${settings.storageName}'
@@ -41,37 +60,6 @@ function getStorageNodeid(){
     }
 }
 
-function prepareEnvs(values) {
-    var aResultValues = [];
-
-    values = values || [];
-
-    for (var i = 0, n = values.length; i < n; i++) {
-        aResultValues.push({ caption: values[i], value: values[i] });
-    }
-
-    return aResultValues;
-}
-
-function prepareBackups(backups) {
-    var oResultBackups = {};
-    var aValues;
-
-    for (var envName in backups) {
-        if (Object.prototype.hasOwnProperty.call(backups, envName)) {
-            aValues = [];
-
-            for (var i = 0, n = backups[envName].length; i < n; i++) {
-                aValues.push({ caption: backups[envName][i], value: backups[envName][i] });
-            }
-
-            oResultBackups[envName] = aValues;
-        }
-    }
-
-    return oResultBackups;
-}
-
 if (storage_unavailable_markup === "") {
     if ('${settings.isPitr}' == 'true') {
         settings.fields.push({
@@ -79,7 +67,7 @@ if (storage_unavailable_markup === "") {
             "type": "list",
             "name": "backupedEnvName",
             "required": true,
-            "values": envs,
+            "values": filteredEnvs,
             "tooltip": "Select the environment to restore from"
         }, {
             "caption": "Time for restore",
@@ -104,7 +92,7 @@ if (storage_unavailable_markup === "") {
             "type": "list",
             "name": "backupedEnvName",
             "required": true,
-            "values": envs
+            "values": filteredEnvs
         }, {
             "caption": "Backup",
             "type": "list",
@@ -112,7 +100,7 @@ if (storage_unavailable_markup === "") {
             "required": true,
             "tooltip": "Select the time stamp for which you want to restore the DB dump",
             "dependsOn": {
-                "backupedEnvName" : backups
+                "backupedEnvName" : filteredBackups
             }
         });
         if (checkSchema.responses[0].out == "true") {
