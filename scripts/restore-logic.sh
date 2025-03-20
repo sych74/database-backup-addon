@@ -67,13 +67,18 @@ function get_snapshot_id_before_time() {
 # Filters out BINLOGS tagged snapshots
 function get_dump_snapshot_id_by_name(){
     local backup_name="$1"
-    local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | jq -r '.[] | select(.tags[0] | contains("'$backup_name'")) | select((.tags[1] != null and (.tags[1] | contains("BINLOGS")) | not) // true) | .short_id')
+    local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | \
+        jq -r '.[] | select(.tags[0] | contains("'"$backup_name"'")) | 
+                select((.tags | index("BINLOGS") | not)) | 
+                .short_id' | head -n1)
+                
     if [[ $? -ne 0 || -z "$snapshot_id" ]]; then
-        echo $(date) ${ENV_NAME} "Error: Failed to get DB dump snapshot ID" | tee -a ${RESTORE_LOG_FILE}
+        echo "$(date) ${ENV_NAME} Error: Failed to get DB dump snapshot ID" | tee -a ${RESTORE_LOG_FILE}
         exit 1
     fi
-    echo $(date) ${ENV_NAME} "Getting DB dump snapshot ID: $snapshot_id" >> ${RESTORE_LOG_FILE}
-    echo $snapshot_id
+    
+    echo "$(date) ${ENV_NAME} Getting DB dump snapshot ID: $snapshot_id" >> ${RESTORE_LOG_FILE}
+    echo "$snapshot_id"
 }
 
 # Retrieves binlog snapshot ID for backup name

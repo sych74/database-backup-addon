@@ -332,7 +332,9 @@ actions:
     - deleteDBdump
     
   restore:
-    - cmd[${targetNodes.nodeGroup}]: echo "${settings.backupedEnvName}" > /root/.backupedenv
+    - cmd[${targetNodes.nodeGroup}]: |-
+        rm -f /root/.backupedenv /root/.backuptime /root/.backupid || exit 0;
+        echo "${settings.backupedEnvName}" > /root/.backupedenv
       user: root
     - if ("${settings.isPitr}" == "true"):
       - script: |
