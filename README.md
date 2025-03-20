@@ -28,11 +28,11 @@ If you already have such storage, you can skip this section.
 
 - **Environment** – environment domain name
 - **Display Name** – [environment's alias](https://www.virtuozzo.com/application-platform-docs/environment-aliases/)
-- **Region** – [environment's region](https://www.virtuozzo.com/application-platform-docs/environment-regions/) (if multiple ones are available)
+- **Region** – [environment's region](https://www.virtuozzo.com/application-platform-docs/choosing-region/) (if multiple ones are available)
 
 ![backup storage installation](images/02-backup-storage-installation.png)
 
-3\. Click the Install button and wait several minutes for the storage to be created. It will be automatically added to the “*Backup storage nodes*” [group](https://www.virtuozzo.com/application-platform-docs/environment-groups/).
+3\. Click the Install button and wait several minutes for the storage to be created. It will be automatically added to the “*Backup storage nodes*” [group](https://www.virtuozzo.com/application-platform-docs/environment-groups-overview/).
 
 ![backup storage environment](images/03-backup-storage-environment.png)
 
@@ -93,10 +93,13 @@ To restore a database from a backup, you need to select the **Restore** option f
 - **PITR** disabled
   - **Environment** – choose an environment with the database to restore (multiple options may be available if the backup add-on is used on several environments)
   - **Backup** – select from a list of backups for the selected environment (names contain timestamps for quick identification)
+
 ![regular restore](images/10-regular-restore.png)
+
 - **PITR** enabled
   - **Environment** – choose an environment with the database to restore (multiple options may be available if the backup add-on is used on several environments)
   - **Restore to** – specify the exact time (up to a minute) to which the database should be restored
+
 ![PITR restore](images/11-pitr-restore.png)
 
 Click **Restore** and confirm via pop-up. Once initiated, the action cannot be canceled or reverted. You'll see the success notification in the dashboard after the process completion.
