@@ -3,7 +3,6 @@
 DBUSER=$1
 DBPASSWD=$2
 RESTORE_LOG_FILE=$3
-PITR=$4
 
 DUMP_BACKUP_DIR=/root/backup/dump
 BINLOGS_BACKUP_DIR=/root/backup/binlogs
@@ -14,27 +13,23 @@ SQL_DUMP_NAME=db_backup.sql
 if [ -f /root/.backupedenv ]; then
     ENV_NAME=$(cat /root/.backupedenv)
 else
-    echo "The /root/.backupedenv file with ENV_NAME doesnt exist."
-    exit 1;
+    echo "The /root/.backupedenv file with ENV_NAME doesn't exist."
+    exit 1
 fi
 
-if [ -z "$PITR" ]; then
+if [ -f /root/.backuptime ]; then
+    PITR="true"
+    PITR_TIME=$(cat /root/.backuptime)
+else
     PITR="false"
 fi
 
-if [ "$PITR" == "true" ]; then
-    if [ -f /root/.backuptime ]; then
-        PITR_TIME=$(cat /root/.backuptime)
-    else
-        echo "The /root/.backuptime file with BACKUP_TIME doesnt exist."
-        exit 1;
-    fi
-else
+if [ "$PITR" == "false" ]; then
     if [ -f /root/.backupid ]; then
         BACKUP_NAME=$(cat /root/.backupid)
     else
-        echo "The /root/.backupid file with BACKUP_NAME doesnt exist."
-        exit 1;
+        echo "The /root/.backupid file with BACKUP_NAME doesn't exist."
+        exit 1
     fi
 fi
 
