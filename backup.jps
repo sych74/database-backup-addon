@@ -1,10 +1,12 @@
 type: update
 jpsVersion: 6.1.1
-name: Database Backup/Restore for the filesystem and the databases
+name: Database Backup/Restore
 id: db-backup
 targetEditions: any
 logo: /images/backup-logo.png
-description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases, even if the content has been completely deleted.
+description: 
+  text: The **Database Backup/Restore** add-on provides automated backup and restore functionality for various database solutions within the Virtuozzo Application Platform. It includes customizable backup scheduling options and straightforward recovery process. The add-on integrates with *Backup Storage* to securely store backups on the remote server, ensuring data safety and availability.
+  short: Free tool to automate database backup creation and restoration processes.
 baseUrl: https://raw.githubusercontent.com/sych74/database-backup-addon/pitr
 
 targetNodes:
@@ -141,13 +143,13 @@ settings:
       - type: toggle
         name: isAlwaysUmount
         caption: Always umount
-        tooltip: "Always unmount backup storage when backup/restore is finished." 
+        tooltip: "This option is used to unmount the backup storage after the backup/restore process is finished. Enable it if you don't want the storage mounted all the time." 
         value: false
         hidden: false
       - type: toggle
         name: isPitr
         caption: PITR
-        tooltip: "Enable Point-In-Time Recovery." 
+        tooltip: "Point-In-Time Recovery (PITR) allows you to restore the database to a specific time. If enabled, this feature records all changes between full backups in the separate transaction logs. When restoring, it automatically selects the closest full backup and applies all the modifications from the appropriate log up to the specified time."
         value: false
         hidden: false
         showIf:
@@ -156,7 +158,7 @@ settings:
             cls: warning
             height: 30,
             hideLabel: true,
-            markup: "Database is not configured for PITR. Click Apply to configure automatically, or close and configure manually following documentation."
+            markup: "The PITR option requires several specific parameters to be set up in the database configuration. If your database is not yet configured for PITR, the necessary adjustments will be applied automatically, and the database will be restarted."
       - type: displayfield
         name: displayPitr
         markup: ""
