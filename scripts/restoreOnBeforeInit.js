@@ -63,20 +63,20 @@ function getStorageNodeid(){
 if (storage_unavailable_markup === "") {
     if ('${settings.isPitr}' == 'true') {
         settings.fields.push({
-            "caption": "Restore from",
+            "caption": "Environment",
             "type": "list",
             "name": "backupedEnvName",
             "required": true,
             "values": filteredEnvs,
-            "tooltip": "Select the environment to restore from"
+            "tooltip": "Select an environment with the database to restore. The environment should have the *Database Backup/Restore* add-on installed."
         }, {
-            "caption": "Time for restore",
+            "caption": "Restore to",
             "type": "string",
             "name": "restoreTime",
             "inputType": "datetime-local",
             "cls": "x-form-text",
             "required": true,
-            "tooltip": "Select specific date and time for point-in-time recovery"
+            "tooltip": "Click the calendar icon to select the date and time. The database will be restored to the state it was in at the specified moment."
         });
         if (checkSchema.responses[0].out == "true") {
             settings.fields.push(
@@ -88,17 +88,18 @@ if (storage_unavailable_markup === "") {
         }
     } else {
         settings.fields.push({
-            "caption": "Restore from",
+            "caption": "Environment",
             "type": "list",
             "name": "backupedEnvName",
             "required": true,
-            "values": filteredEnvs
+            "values": filteredEnvs,
+            "tooltip": "Select an environment with the database to restore. The environment should have the *Database Backup/Restore* add-on installed."
         }, {
             "caption": "Backup",
             "type": "list",
             "name": "backupDir",
             "required": true,
-            "tooltip": "Select the time stamp for which you want to restore the DB dump",
+            "tooltip": "Select a backup from the list. The name of each backup contains a timestamp for easy identification.",
             "dependsOn": {
                 "backupedEnvName" : filteredBackups
             }

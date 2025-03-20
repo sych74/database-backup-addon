@@ -4,17 +4,14 @@
 
 # Database Backup/Restore Add-On
 
-Database Backup Add-On is compatible with multiple database solutions in the Virtuozzo Application Platform. It works in tandem with [Backup Storage](https://github.com/jelastic-jps/backup-storage) to help users automatically create and store database backups at the remote storage. The list of supported web applications:
+The **Database Backup/Restore** add-on is compatible with multiple database solutions on the Virtuozzo Application Platform. It works in tandem with [Backup Storage](https://github.com/jelastic-jps/backup-storage) to help users automatically create and store database backups at the remote storage. The list of supported database servers includes:
 
 - MySQL/MariaDB/Percona
 - PostgreSQL
+- MongoDB
 - Redis
 
-As a backup software the [Restic](https://restic.net/) is used.
-
-Restic is a program to make a security copy for free and fast. It is a secure, cross-platform, open source program written in the Go programming language.
-
-Restic encrypts data using AES-256 and authenticates it using Poly1305-AES. Backing up is incremental process and is based on snapshotting of the specific directory or even the whole server that makes the process is really fast.
+[Restic](https://restic.net/) is used as backup software. It is a secure, cross-platform, open-source backup program written in Go. It encrypts data using AES-256 and authenticates it with Poly1305-AES. Restic performs incremental backups based on snapshots of specific directories or entire servers, ensuring a fast and efficient backup process.
 
 
 ## Pre-Requirements
@@ -27,7 +24,7 @@ Before starting the add-on installation, you need to create a dedicated storage 
 
 If you already have such storage, you can skip this section.
 
-2\. Within the installation window, you can choose between the ***Standalone*** and ***Cluster*** storage options. Next, specify the preferred **Number of nodes** (for Cluster option) and **Storage size**. Finalize by providing the standard data:
+2\. Within the installation window, you can choose between the ***Standalone*** and ***Cluster*** storage options. Next, specify the preferred **Number of nodes** (for the Cluster option) and **Storage size**. Finalize by providing the standard data:
 
 - **Environment** – environment domain name
 - **Display Name** – [environment's alias](https://www.virtuozzo.com/application-platform-docs/environment-aliases/)
@@ -58,8 +55,10 @@ Locate the required ***Database Backup/Restore Add-On*** and click **Install**.
 ![custom backup schedule](images/05-custom-backup-schedule.png)
   - **Manual (crontab)** - provide a simple [cron-based expression](https://en.wikipedia.org/wiki/Cron#Overview) (using the UTC zone) to schedule backups
 ![crontab backup schedule](images/06-crontab-backup-schedule.png)
-- **Backup storage** – choose from the list of the backup storages installed on the account
+- **Backup storage** – choose from the list of the backup storage servers installed on the account
 - **Number of backups** – set the number of the newest backups to keep for the current database
+- **Always unmount** – enable to unmount the storage after the backup/restore process is finished
+- **PITR** *(point-in-time recovery)* - enable to support database restoration to a specific point in time
 - **Database User** and **Database Password** – provide user credentials to access the database
 
 ![backup restore add-on installation](images/07-backup-restore-addon-installation.png)
@@ -87,11 +86,15 @@ After the installation, the add-on gives you the options to:
 
 *Database restoration from the backup overrides all the existing data. Any recent changes that were made since the backup creation will be permanently lost.*
 
-In order to restore a database from a backup, you need to select the **Restore** option for the add-on. A dialogue window with the following options will be opened:
+To restore a database from a backup, you need to select the **Restore** option for the add-on. Based on the environment's *PITR* setting, you'll see different restore options:
 
-- **Restore from** – choose the target environment (multiple options may be available if the backup add-on is used on several environments)
-- **Backup** – select from a list of backups for the selected environment (names contain timestamps for quick identification)
-
-![restore from backup](images/10-restore-from-backup.png)
+- **PITR** disabled
+  - **Environment** – choose an environment with the database to restore (multiple options may be available if the backup add-on is used on several environments)
+  - **Backup** – select from a list of backups for the selected environment (names contain timestamps for quick identification)
+![regular restore](images/10-regular-restore.png)
+- **PITR** enabled
+  - **Environment** – choose an environment with the database to restore (multiple options may be available if the backup add-on is used on several environments)
+  - **Restore to** – specify the exact time (up to a minute) to which the database should be restored
+![PITR restore](images/11-pitr-restore.png)
 
 Click **Restore** and confirm via pop-up. Once initiated, the action cannot be canceled or reverted. You'll see the success notification in the dashboard after the process completion.
