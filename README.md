@@ -63,6 +63,8 @@ Locate the required ***Database Backup/Restore Add-On*** and click **Install**.
 
 ![backup restore add-on installation](images/07-backup-restore-addon-installation.png)
 
+Click **Install** to proceed.
+
 3\. In a minute, you’ll see the installation success pop-up.
 
 ![add-on installed](images/08-addon-installed.png)
