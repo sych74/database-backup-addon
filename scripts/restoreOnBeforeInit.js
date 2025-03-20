@@ -23,13 +23,15 @@ if (resp.result == 11) {
     var updateResticOnStorageCommand = "wget --tries=10 -O /tmp/installUpdateRestic " + baseUrl + "/scripts/installUpdateRestic && mv -f /tmp/installUpdateRestic /usr/sbin/installUpdateRestic && chmod +x /usr/sbin/installUpdateRestic && /usr/sbin/installUpdateRestic";
     var respUpdate = api.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": updateResticOnStorageCommand, "params": ""}]), false, "root");
     if (respUpdate.result != 0) return respUpdate;
-    var getBackupsAllEnvs = "wget --tries=10 -O /root/getBackupsAllEnvs.sh " + baseUrl + "/scripts/getBackupsAllEnvs.sh && chmod +x /root/getBackupsAllEnvs.sh && /root/getBackupsAllEnvs.sh";
+    var getBackupsAllEnvs = "wget --tries=10 -O /root/getBackupsAllEnvsJSON.sh " + baseUrl + "/scripts/getBackupsAllEnvsJSON.sh && chmod +x /root/getBackupsAllEnvsJSON.sh && /root/getBackupsAllEnvsJSON.sh";
     var backups = jelastic.env.control.ExecCmdById(storageEnvDomain, session, storageEnvMasterId, toJSON([{"command": getBackupsAllEnvs, "params": ""}]), false, "root").responses[0].out;
     var backupList = toNative(new JSONObject(String(backups)));
-    
+
     var filteredEnvs = [];
     var filteredBackups = {};
-
+    var filteredPitrEnvs = [];
+    var filteredPitrStartTime = {};
+    
     for (var env in backupList.envs) {
         if (backupList.envs.hasOwnProperty(env)) {
             var backupInfo = backupList.envs[env];
@@ -40,6 +42,11 @@ if (resp.result == 11) {
                 filteredBackups[env] = backupInfo.backups.map(function(backup) {
                     return { caption: backup, value: backup };
                 });
+                
+                if (backupInfo.pitr === true) {
+                  filteredPitrEnvs.push({ caption: env, value: env });
+                  filteredPitrStartTime[env] = [{ caption: backupInfo.pitrStartTime, value: backupInfo.pitrStartTime }];
+                }
             }
         }
     }
@@ -63,20 +70,61 @@ function getStorageNodeid(){
 if (storage_unavailable_markup === "") {
     if ('${settings.isPitr}' == 'true') {
         settings.fields.push({
-            "caption": "Restore from",
-            "type": "list",
-            "name": "backupedEnvName",
-            "required": true,
-            "values": filteredEnvs,
-            "tooltip": "Select the environment to restore from"
-        }, {
-            "caption": "Time for restore",
-            "type": "string",
-            "name": "restoreTime",
-            "inputType": "datetime-local",
-            "cls": "x-form-text",
-            "required": true,
-            "tooltip": "Select specific date and time for point-in-time recovery"
+            "type": "toggle",
+            "name": "isPitr",
+            "caption": "PITR",
+            "tooltip": "Point in time recovery",
+            "value": true,
+            "hidden": false,
+            "showIf": {
+              "true": [
+               {
+                    "caption": "Restore from",
+                    "type": "list",
+                    "name": "backupedEnvName",
+                    "required": true,
+                    "values": filteredPitrEnvs,
+                    "default": filteredPitrEnvs[0],
+                    "tooltip": "Select the environment to restore from"
+                }, {
+                    "caption": "PITR Start Time",
+                    "type": "list",
+                    "name": "pitrStartTime",
+                    "required": true,
+                    "tooltip": "PITR Start Time",
+                    "dependsOn": {
+                       "backupedEnvName" : filteredPitrStartTime
+                    }
+                }, {
+                    "caption": "Time for restore",
+                    "type": "string",
+                    "name": "restoreTime",
+                    "inputType": "datetime-local",
+                    "cls": "x-form-text",
+                    "required": true,
+                    "tooltip": "Select specific date and time for point-in-time recovery"
+                }
+              ],
+              "false": [
+               {
+                    "caption": "Restore from",
+                    "type": "list",
+                    "name": "backupedEnvName",
+                    "required": true,
+                    "default": filteredEnvs[0],
+                    "values": filteredEnvs
+                }, {
+                    "caption": "Backup",
+                    "type": "list",
+                    "name": "backupDir",
+                    "required": true,
+                    "tooltip": "Select the time stamp for which you want to restore the DB dump",
+                    "dependsOn": {
+                        "backupedEnvName" : filteredBackups
+                    }
+                }
+              ]
+            }
         });
         if (checkSchema.responses[0].out == "true") {
             settings.fields.push(
@@ -92,6 +140,7 @@ if (storage_unavailable_markup === "") {
             "type": "list",
             "name": "backupedEnvName",
             "required": true,
+            "default": filteredEnvs[0],
             "values": filteredEnvs
         }, {
             "caption": "Backup",
