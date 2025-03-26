@@ -34,9 +34,6 @@ if [ "$PITR" == "false" ]; then
 fi
 
 # Finds snapshot ID before specified timestamp
-# @param {string} target_datetime - Target restoration time
-# @return {string} Snapshot ID or exits with error
-# Searches through PITR snapshots chronologically
 function get_snapshot_id_before_time() {
     local target_datetime="$1"
 
@@ -62,9 +59,6 @@ function get_snapshot_id_before_time() {
 }
 
 # Retrieves snapshot ID for given backup name
-# @param {string} backup_name - Name of the backup to find
-# @return {string} Snapshot ID or exits with error
-# Filters out BINLOGS tagged snapshots
 function get_dump_snapshot_id_by_name(){
     local backup_name="$1"
     local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --json | \
@@ -82,9 +76,6 @@ function get_dump_snapshot_id_by_name(){
 }
 
 # Retrieves binlog snapshot ID for backup name
-# @param {string} backup_name - Name of the backup
-# @return {string} Binlog snapshot ID or exits with error
-# Specifically searches for BINLOGS tagged snapshots
 function get_binlog_snapshot_id_by_name(){
     local backup_name="$1"
     local snapshot_id=$(GOGC=20 RESTIC_PASSWORD=${ENV_NAME} restic -r /opt/backup/${ENV_NAME} snapshots --tag "BINLOGS" --json | jq -r --arg backup_name "$backup_name" '.[] | select(.tags[0] | contains($backup_name)) | .short_id')
@@ -269,10 +260,13 @@ function restore_postgres() {
         # Remove problematic role commands
         sed -i -e '/^CREATE ROLE webadmin/d' \
                -e '/^CREATE ROLE postgres/d' \
+               -e "/^CREATE ROLE ${DBUSER}/d" \
                -e '/^DROP ROLE IF EXISTS postgres/d' \
                -e '/^DROP ROLE IF EXISTS webadmin/d' \
+               -e "/^DROP ROLE IF EXISTS ${DBUSER}/d" \
                -e '/^ALTER ROLE postgres WITH SUPERUSER/d' \
-               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' "$TEMP_BACKUP"
+               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' \ 
+               -e "/^ALTER ROLE ${DBUSER} WITH SUPERUSER/d" "$TEMP_BACKUP"
         
         # Restore the database
         PGPASSWORD="${DBPASSWD}" psql --no-readline -q -U "${DBUSER}" -d postgres < "$TEMP_BACKUP"
@@ -300,10 +294,13 @@ function restore_postgres() {
         # Remove problematic role commands
         sed -i -e '/^CREATE ROLE webadmin/d' \
                -e '/^CREATE ROLE postgres/d' \
+               -e "/^CREATE ROLE ${DBUSER}/d" \
                -e '/^DROP ROLE IF EXISTS postgres/d' \
                -e '/^DROP ROLE IF EXISTS webadmin/d' \
+               -e "/^DROP ROLE IF EXISTS ${DBUSER}/d" \
                -e '/^ALTER ROLE postgres WITH SUPERUSER/d' \
-               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' "$TEMP_BACKUP"
+               -e '/^ALTER ROLE webadmin WITH SUPERUSER/d' \ 
+               -e "/^ALTER ROLE ${DBUSER} WITH SUPERUSER/d" "$TEMP_BACKUP"
 
         PGPASSWORD="${DBPASSWD}" psql --no-readline -q -U "${DBUSER}" -d postgres < "$TEMP_BACKUP" > /dev/null
         if [[ $? -ne 0 ]]; then
