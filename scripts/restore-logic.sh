@@ -168,7 +168,7 @@ function restore_mongodb(){
     else
       SSL_TLS_OPTIONS=""
     fi
-    mongorestore ${SSL_TLS_OPTIONS} --uri="mongodb://${1}:${2}@localhost${RS_SUFFIX}" ${DUMP_BACKUP_DIR} 1>/dev/null
+    mongorestore ${SSL_TLS_OPTIONS} --uri="mongodb://${DBUSER}:${DBPASSWD}@localhost${RS_SUFFIX}" ${DUMP_BACKUP_DIR} 1>/dev/null
 
 }
 
