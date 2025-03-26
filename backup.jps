@@ -5,8 +5,7 @@ id: db-backup
 targetEditions: any
 logo: /images/backup-logo.png
 description: Backup Add-On for the database. It can be used to create scheduled backups according to any required timezone and restore corrupted databases, even if the content has been completely deleted.
-
-baseUrl: https://raw.githubusercontent.com/jelastic-jps/database-backup-addon/master
+baseUrl: https://raw.githubusercontent.com/sych74/database-backup-addon/pitr
 
 targetNodes:
   nodeType: 
@@ -145,6 +144,25 @@ settings:
         tooltip: "Always unmount backup storage when backup/restore is finished." 
         value: false
         hidden: false
+      - type: toggle
+        name: isPitr
+        caption: PITR
+        tooltip: "Enable Point-In-Time Recovery." 
+        value: false
+        hidden: false
+        showIf:
+          true:
+          - type: displayfield
+            cls: warning
+            height: 30,
+            hideLabel: true,
+            markup: "Database is not configured for PITR. Click Apply to configure automatically, or close and configure manually following documentation."
+      - type: displayfield
+        name: displayPitr
+        markup: ""
+        hidden: true
+        hideLabel: true
+        cls: warning
       - type: displayfield
         name: displayfield
         markup: Please specify the database user that has enough privileges to access and modify all the databases stored on server. Username and password are required for all the DB servers except Redis.
@@ -168,6 +186,10 @@ settings:
   restore:
     fields: []
     onBeforeInit: scripts/restoreOnBeforeInit.js
+    
+  pitr:
+    fields: []
+    onBeforeInit: scripts/pitrOnBeforeInit.js
       
 onBeforeInit: scripts/backupOnBeforeInit.js
 
@@ -283,6 +305,7 @@ actions:
         backupExecNode: ${targetNodes.master.id}
         storageEnv: ${response.storageEnvShortName}
         isAlwaysUmount: ${this.isAlwaysUmount}
+        isPitr: ${this.isPitr}
         nodeGroup: ${this.nodeGroup}
         dbuser: ${this.dbuser}
         dbpass: ${this.dbpass}
@@ -311,9 +334,20 @@ actions:
     
   restore:
     - cmd[${targetNodes.nodeGroup}]: |-
+        rm -f /root/.backupedenv /root/.backuptime /root/.backupid || exit 0;
         echo "${settings.backupedEnvName}" > /root/.backupedenv
-        echo "${settings.backupDir}" > /root/.backupid
       user: root
+    - if ("${settings.isPitr}" == "true"):
+      - script: |
+          var dateTimeInput = '${settings.restoreTime}';
+          var [date, time] = dateTimeInput.split('T');
+          var formattedDateTime = date + " " + time.slice(0, 5) + ":00";
+          return {result: 0, formattedDateTime: formattedDateTime};
+      - cmd[${targetNodes.nodeGroup}]: echo "${response.formattedDateTime}" > /root/.backuptime;
+        user: root
+    - else:
+      - cmd[${targetNodes.nodeGroup}]: echo "${settings.backupDir}" > /root/.backupid;
+        user: root        
     - callScript: restore
     - deleteDBdump
     
@@ -367,6 +401,7 @@ actions:
     - setGlobals: 
         storageEnv: ${settings.storageName}
         isAlwaysUmount: ${settings.isAlwaysUmount}
+        isPitr: ${settings.isPitr}
     - if ("${settings.scheduleType}" == 2):
       - convert
     - else:
@@ -377,14 +412,21 @@ actions:
     - else:
       - removePermanentMount
       - addPermanentMount
+    - if ("${settings.isPitr}" == "true"): setupPitr      
     - installScript:
         cronTime: ${globals.cron}
         backupCount: ${settings.backupCount}
         isAlwaysUmount: ${globals.isAlwaysUmount}
+        isPitr: ${globals.isPitr}
         nodeGroup: ${targetNodes.nodeGroup}
         dbuser: ${settings.dbuser}
         dbpass: ${settings.dbpass}
-        
+
+  setupPitr:
+    cmd[${nodes.sqldb.master.id}]: |-
+        wget --tries=10 -O /tmp/pitr.sh ${baseUrl}/scripts/pitr.sh && \
+        chmod +x /tmp/pitr.sh && /tmp/pitr.sh setupPitr ${settings.dbuser} ${settings.dbpass};
+
   addPermanentMount:
     - getStorageCtid
     - script: |

@@ -10,6 +10,7 @@ var scriptName        = getParam("scriptName", "${env.envName}-wp-backup"),
     backupExecNode    = getParam("backupExecNode"),
     storageEnv        = getParam("storageEnv"),
     isAlwaysUmount    = getParam("isAlwaysUmount"),
+    isPitr            = getParam("isPitr"),
     nodeGroup         = getParam("nodeGroup"),
     dbuser            = getParam("dbuser"),
     dbpass            = getParam("dbpass");
@@ -28,6 +29,7 @@ function run() {
         backupExecNode    : backupExecNode,
         storageEnv        : storageEnv,
         isAlwaysUmount    : isAlwaysUmount,
+        isPitr            : isPitr,
         nodeGroup         : nodeGroup,
         dbuser            : dbuser,
         dbpass            : dbpass
