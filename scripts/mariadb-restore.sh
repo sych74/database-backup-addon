@@ -10,6 +10,11 @@ else
     CLIENT_APP="mysql"
 fi
 
+# Check if db_backup.sql is compressed and decompress it
+if [ -f "/root/db_backup.sql.gz" ]; then
+    gunzip -c /root/db_backup.sql.gz > /root/db_backup.sql
+fi
+
 ${CLIENT_APP} --silent -h ${SERVER_IP_ADDR} -u ${1} -p${2} --force < /root/db_backup.sql
 
 if [ -n "${SCHEME}" ] && [ x"${SCHEME}" == x"galera" ]; then

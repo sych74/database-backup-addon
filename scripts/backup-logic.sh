@@ -109,7 +109,12 @@ function create_snapshot(){
         echo $(date) ${ENV_NAME} "Saving the DB dump to ${DUMP_NAME} snapshot" | tee -a ${BACKUP_LOG_FILE}
         GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/dump | tee -a ${BACKUP_LOG_FILE}	    
     else
-        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/db_backup.sql | tee -a ${BACKUP_LOG_FILE}
+        if [ -f "/root/db_backup.sql.gz" ]; then
+    	   DB_BACKUP_NAME="db_backup.sql.gz"
+	else
+           DB_BACKUP_NAME="db_backup.sql"
+        fi
+        GOGC=20 RESTIC_COMPRESSION=off RESTIC_PACK_SIZE=8 RESTIC_PASSWORD=${ENV_NAME} restic backup -q -r /opt/backup/${ENV_NAME} --tag "${DUMP_NAME} ${BACKUP_ADDON_COMMIT_ID} ${BACKUP_TYPE}" ~/${DB_BACKUP_NAME} | tee -a ${BACKUP_LOG_FILE}
     fi
 }
 
@@ -133,7 +138,7 @@ function backup(){
         fi
     elif [ "$COMPUTE_TYPE" == "postgres" ]; then
         PGPASSWORD="${DBPASSWD}" psql -U ${DBUSER} -d postgres -c "SELECT current_user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-	PGPASSWORD="${DBPASSWD}" pg_dumpall -U ${DBUSER} --clean --if-exist > db_backup.sql || { echo "DB backup process failed."; exit 1; } 
+	PGPASSWORD="${DBPASSWD}" pg_dumpall -U ${DBUSER} --clean --if-exist | gzip > db_backup.sql.gz || { echo "DB backup process failed."; exit 1; } 
     elif [ "$COMPUTE_TYPE" == "mongodb" ]; then
         if grep -q ^[[:space:]]*replSetName /etc/mongod.conf; then
             RS_NAME=$(grep ^[[:space:]]*replSetName /etc/mongod.conf|awk '{print $2}');
@@ -162,7 +167,7 @@ function backup(){
             DUMP_APP="mysqldump"
         fi
         ${CLIENT_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} mysql --execute="SHOW COLUMNS FROM user" || { echo "DB credentials specified in add-on settings are incorrect!"; exit 1; }
-        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases > db_backup.sql || { echo "DB backup process failed."; exit 1; }
+        ${DUMP_APP} -h ${SERVER_IP_ADDR} -u ${DBUSER} -p${DBPASSWD} --force --single-transaction --quote-names --opt --all-databases | gzip > db_backup.sql.gz || { echo "DB backup process failed."; exit 1; }
     fi
     rm -f /var/run/${ENV_NAME}_backup.pid
 }

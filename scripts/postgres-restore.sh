@@ -4,6 +4,11 @@ CLIENT_APP="psql"
 ORIG_BACKUP="/root/db_backup.sql"
 TEMP_BACKUP="/tmp/db_backup.sql"
 
+# Check if db_backup.sql is compressed and decompress it
+if [ -f "/root/db_backup.sql.gz" ]; then
+    gunzip -c /root/db_backup.sql.gz > /root/db_backup.sql
+fi
+
 [ -f "$TEMP_BACKUP" ] && rm -f "$TEMP_BACKUP"
 cp "$ORIG_BACKUP" "$TEMP_BACKUP"
 
