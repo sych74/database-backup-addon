@@ -202,7 +202,6 @@ function BackupManager(config) {
 		'if [ "$COMPUTE_TYPE" == "postgres" ]; then rm -f /root/postgres-restore.sh; wget -O /root/postgres-restore.sh %(baseUrl)/scripts/postgres-restore.sh; chmod +x /root/postgres-restore.sh; bash /root/postgres-restore.sh %(dbuser) %(dbpass) 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
 		'if [ "$COMPUTE_TYPE" == "mariadb" ] || [ "$COMPUTE_TYPE" == "mysql" ] || [ "$COMPUTE_TYPE" == "percona" ]; then rm -f /root/mariadb-restore.sh; wget -O /root/mariadb-restore.sh %(baseUrl)/scripts/mariadb-restore.sh; chmod +x /root/mariadb-restore.sh; bash /root/mariadb-restore.sh %(dbuser) %(dbpass) 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
                 'if [ "$COMPUTE_TYPE" == "mongodb" ]; then rm -f /root/mongo-restore.sh; wget -O /root/mongo-restore.sh %(baseUrl)/scripts/mongo-restore.sh; chmod +x /root/mongo-restore.sh; bash /root/mongo-restore.sh %(dbuser) %(dbpass) 2> >(tee -a %(restoreLogFile) >&2); else true; fi',
-		'jem service restart',
 		'if [ -n "$REPLICA_PSWD" ] && [ -n "$REPLICA_USER" ] ; then wget %(baseUrl)/scripts/setupUser.sh -O /root/setupUser.sh &>> /var/log/run.log; bash /root/setupUser.sh ${REPLICA_USER} ${REPLICA_PSWD} %(userEmail) %(envName) %(userSession); fi',
 		'echo $(date) %(envName) snapshot $(cat /root/.backupid) restored successfully| tee -a %(restoreLogFile)'
             ], {
